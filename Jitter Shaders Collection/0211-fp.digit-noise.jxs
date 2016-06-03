@@ -1,0 +1,124 @@
+<jittershader name="">
+	<param name="time" type="float" default="0.0" />
+	<param name="granular" type="float" default="0.0" />
+	<param name="threshold" type="float" default="0.0" />
+	<param name="mode" type="float" default="0.0" />
+	<param name="codec" type="float" default="-6.3" />
+	<param name="noise" type="float" default="-6.3" />
+	<param name="gauss" type="float" default="-6.3" />
+	<param name="digit" type="float" default="-6.3" />
+	<param name="digit_x" type="float" default="-1.1" />
+	<param name="digit_y" type="float" default="-0.9" />
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.4">
+		<bind param="threshold" program="fp" />
+		<bind param="codec" program="fp" />
+		<bind param="time" program="fp" />
+		<bind param="granular" program="fp" />
+		<bind param="noise" program="fp" />
+		<bind param="gauss" program="fp" />
+		<bind param="mode" program="fp" />
+		<bind param="digit" program="fp" />
+		<bind param="digit_x" program="fp" />
+		<bind param="digit_y" program="fp" />
+		<bind param="tex0" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+
+void main(void)
+{
+    gl_Position     = ftransform();
+    // transform texcoords
+    texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+uniform sampler2DRect tex0;
+uniform float threshold;
+uniform float digit;
+uniform float digit_x;
+uniform float digit_y;
+uniform float codec;
+uniform float noise;
+uniform float time;
+uniform float mode;
+uniform float gauss;
+uniform float granular;
+float threshold_norm = 0.9+(threshold+6.3)/127.0;
+float digit_norm = (digit+6.3)/12.7;
+float time_norm = 2.0 + (time+6.3)/6.0;
+float granular_norm = 0.1+(granular+6.3)*10.;
+float codec_norm = (codec+6.3)/1270.0;
+float noise_norm = (noise+6.3)/12.7;
+float gauss_norm = (gauss+6.3)/12.7;
+float seed = 0.0;
+float seed_source;
+float digit_x_norm = 1.0;
+float digit_y_norm = 1.0;
+float noise_fact = 0.0;
+float g = 0.0;
+vec2 resolution = textureSize(tex0,0);
+
+float rand(vec2 co){
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+}
+
+void main (void)
+{
+
+      // Add Noise
+      if(noise_norm > 0.1)
+      {
+       noise_fact = rand(sin(time_norm)*texcoord0/resolution);
+      }
+
+      // Add Digital Distortion
+      if ((codec_norm > 0.001)||(digit_norm > 0.1))
+      {
+
+       if(digit_norm > 0.1)
+       {
+        digit_x_norm = digit_x+1.0;
+        digit_y_norm = digit_y+1.0;
+        codec_norm=digit_norm/100.;
+       }  
+ 
+       vec2 feed = texcoord0-vec2(mod(texcoord0.x,resolution.x/(granular_norm*digit_x_norm)),mod(texcoord0.y,resolution.y/(granular_norm*digit_y_norm))); 
+
+       if (mode > 0.9) {
+        seed_source = rand(vec2(feed.x,1.0));
+       } else {
+         if (mode < -0.9) {
+          seed_source = rand(vec2(1.0,feed.y));
+         } else {
+          seed_source = rand(vec2(feed.x,feed.y));
+         }
+       }
+
+       if ((seed_source < (threshold_norm-digit_norm))||(noise_norm>0.1))
+       {
+        seed=0.0;
+       } else {
+        seed=(seed_source-threshold_norm)*50.;
+       }
+      }
+
+      // Add Analog Distortion
+      if (gauss_norm > 0.1) {
+       g = 100.0/exp((pow((texcoord0.y/resolution.y-gauss_norm),2.0))/0.08);
+      }
+
+      // Final Mixing
+      vec2 shift2 = gauss_norm*5.*vec2(g,0.0);
+      vec2 shift1 = vec2(texcoord0.x+shift2.x+codec_norm*seed*resolution.x,texcoord0.y+codec_norm*seed*resolution.y);
+      vec4 a = vec4(texture2DRect(tex0, shift1));
+      gl_FragColor = noise_norm*vec4(noise_fact,noise_fact,noise_fact,1.0)+(1.0-noise_norm)*a;
+}
+]]>
+	</program>
+    </language>
+</jittershader>

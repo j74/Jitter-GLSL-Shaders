@@ -1,0 +1,147 @@
+<jittershader name="">
+	<param name="gain0" type="float" default="0.1" />
+	<param name="gain1" type="float" default="-0.6" />
+	<param name="feedback" type="float" default="5.2" />
+	<param name="reverse" type="float" default="-0.1" />
+	<param name="diffuse" type="float" default="-0.3" />
+	<param name="gain_R" type="float" default="0.0" />
+	<param name="gain_G" type="float" default="0.4" />
+	<param name="gain_B" type="float" default="0.4" />
+	<param name="gain_U" type="float" default="0.7" />
+	<param name="gain_V" type="float" default="0.0" />
+	<param name="tex0" type="int" default="0" />
+	<param name="tex1" type="int" default="1" />
+	<language name="glsl" version="1.2">
+		<bind param="gain0" program="fp" />
+		<bind param="gain1" program="fp" />
+		<bind param="feedback" program="fp" />
+		<bind param="reverse" program="fp" />
+		<bind param="diffuse" program="fp" />
+		<bind param="gain_R" program="fp" />
+		<bind param="gain_G" program="fp" />
+		<bind param="gain_B" program="fp" />
+		<bind param="gain_U" program="fp" />
+		<bind param="gain_V" program="fp" />
+		<bind param="tex0" program="fp" />	
+		<bind param="tex1" program="fp" />	
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+
+void main()
+{
+    gl_Position = ftransform();
+    texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+    texcoord1 = vec2(gl_TextureMatrix[1] * gl_MultiTexCoord1);
+}
+
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+uniform sampler2DRect tex0;
+uniform sampler2DRect tex1;
+uniform float feedback;
+uniform float reverse;
+uniform float gain0;
+uniform float gain1;
+uniform float gain_R;
+uniform float gain_G;
+uniform float gain_B;
+uniform float diffuse;
+uniform float gain_U;
+uniform float gain_V;
+float g0 = gain0/6.4;
+float g1 = gain1/6.4;
+float gR = 2.0 * (3.2 + gain_R) / 6.4;
+float gG = 2.0 * (3.2 + gain_G) / 6.4;
+float gB = 2.0 * (3.2 + gain_B) / 6.4;
+float gD = 2.0 * (3.2 + diffuse) / 6.4;
+float gU = 2.0 * (3.2 + gain_U) / 6.4;
+float gV = 2.0 * (3.2 + gain_V) / 6.4;
+
+float fdbck = feedback/6.4;
+vec2 sz = textureSize(tex1,0);
+
+void main()
+{ 
+
+  // input tex1 is meant to be a loopback
+  vec2 c0 = texcoord0;
+  vec2 c1 = texcoord1;
+
+  if (reverse > 0.0) {
+    c1 = vec2 (texcoord1.x, sz.y - texcoord1.y);
+   } 
+
+  float cup_y;
+  float cdn_y;
+  float crt_x;
+  float clt_x;
+
+  if (c1.y+1.0 > sz.y) {
+   cup_y = c1.y+1.0-sz.y;
+  } else {
+   cup_y = c1.y+1.0;
+  } 
+
+  if (c1.y < 1.0) {
+   cdn_y = c1.y+sz.y-1.0;
+  } else {
+   cdn_y = c1.y-1.0;
+  } 
+
+  if (c1.x+1.0 > sz.x) {
+   crt_x = c1.x+1.0-sz.x;
+  } else {
+   crt_x = c1.x+1.0;
+  } 
+
+  if (c1.x < 1.0) {
+   clt_x = c1.x+sz.x-1.0;
+  } else {
+   clt_x = c1.x-1.0;
+  } 
+
+  vec2 cup = vec2(c1.x, cup_y);
+  vec2 cdn = vec2(c1.x, cdn_y);
+  vec2 crt = vec2(crt_x, c1.y);
+  vec2 clt = vec2(clt_x, c1.y);
+
+  // "Pearson" model from PDE4
+  float dt = 1.0; 
+  float dxy = gD * 2.5 / 256.0;
+  float Du = 2.0e-5; 
+  float Dv = 1.0e-5;
+
+  // U and V are kept in the first two components (r/g or x/y) of the pixel
+  vec4 rgb_input1 = texture2DRect(tex1,c1);
+  vec2 uv = vec2(fdbck * rgb_input1.x, fdbck * rgb_input1.y);
+  vec4 rgb_input0 = texture2DRect(tex0,c0);
+  vec3 live_video = vec3(rgb_input0.x, rgb_input0.y, rgb_input0.z);
+
+  float u = uv.x; 
+  float v = uv.y;
+  float F = live_video.r;
+  float k = live_video.g;
+
+  vec4 del = texture2DRect(tex1,cup) + texture2DRect(tex1,cdn) + texture2DRect(tex1,crt) + texture2DRect(tex1,clt) - (4.0 * rgb_input1);
+  del = del / (dxy * dxy);
+  float du = dt * ((Du * del.x) - (u * v * v) + F*(1.0-u));
+
+  float u2 = gU * u + du;
+  u2 = clamp(u2, 0.0, 1.0);
+ 
+  float v2 = gV * v + reverse * dt * ((Dv * del.y) + gV * (u * v * v) - gV * (F+k)*v);
+  v2 = clamp(v2, 0.0, 1.0);
+
+  vec4 retval = vec4(u2, v2, du, 1.0) + g1 * rgb_input1 + g0 * rgb_input0;
+  gl_FragColor = vec4(gR * retval.x, gG * retval.y, gB * retval.z, 1.0);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

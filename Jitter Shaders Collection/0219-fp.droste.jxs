@@ -1,0 +1,96 @@
+<jittershader name="droste">
+	<param name="zoom" type="float" default="5.0" />
+	<param name="flipX" type="float" default="0.0" />
+	<param name="flipY" type="float" default="0.0" />
+	<param name="red_comp" type="float" default="0.1" />
+	<param name="green_comp" type="float" default="0.1" />
+	<param name="blue_comp" type="float" default="0.1" />
+	<param name="driveX" type="float" default="0.0" />
+	<param name="driveY" type="float" default="0.0" />
+	<param name="thresh" type="float" default="-6.3" />
+	<param name="tex0" type="int" default="0" />
+	<param name="tex1" type="int" default="1" />
+	<language name="glsl" version="1.0">
+		<bind param="zoom" program="fp" /> 
+		<bind param="flipX" program="fp" /> 
+		<bind param="flipY" program="fp" /> 
+		<bind param="red_comp" program="fp" /> 
+		<bind param="green_comp" program="fp" /> 
+		<bind param="blue_comp" program="fp" /> 
+		<bind param="driveX" program="fp" /> 
+		<bind param="driveY" program="fp" /> 
+		<bind param="thresh" program="fp" /> 
+		<bind param="tex0" program="fp" />
+		<bind param="tex1" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+
+void main()
+{
+	gl_Position = ftransform();
+	texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+	texcoord1 = vec2(gl_TextureMatrix[1] * gl_MultiTexCoord1);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+uniform sampler2DRect tex0;
+uniform sampler2DRect tex1;
+uniform float zoom;
+uniform float flipX;
+uniform float flipY;
+uniform float red_comp;
+uniform float green_comp;
+uniform float blue_comp;
+uniform float driveX;
+uniform float driveY;
+uniform float thresh;
+float thresh_norm = (thresh + 6.3) / 4.3;
+float zoom2 = (zoom + 6.3)/12.7;
+float red_norm = (red_comp + 6.3)/6.4;
+float green_norm = (green_comp + 6.3)/6.4;
+float blue_norm = (blue_comp + 6.3)/6.4;
+vec2 resolution = textureSize(tex0,0);
+float bxm = 0.5 * (1.0 - zoom2) * resolution.x;
+float bxM = 0.5 * (1.0 + zoom2) * resolution.x;
+float bym = 0.5 * (1.0 - zoom2) * resolution.y;
+float byM = 0.5 * (1.0 + zoom2) * resolution.y;
+vec2 range = vec2(bxM-bxm,byM-bym); 
+vec4 original;
+vec4 droste;
+void main()
+{   
+	bxm = bxm * (1.0 + driveX*texcoord0.x/resolution.x); 
+	bym = bym * (1.0 + driveY*texcoord0.y/resolution.y); 
+	original = texture2DRect(tex0,texcoord0);
+	if ((texcoord0.x > bxm)&&(texcoord0.x < bxM))
+	{
+ 	 if ((texcoord0.y > bym)&&(texcoord0.y < byM))
+	 {
+	   vec2 coord = vec2(((texcoord0.x - bxm)/range.x)*resolution.x,((texcoord0.y - bym)/range.y)*resolution.y);
+	   if (flipX > 0.0) 
+	    coord.x = resolution.x - coord.x;
+	   if (flipY <= 0.0) 
+	    coord.y = resolution.y - coord.y;
+	   droste = texture2DRect(tex1,coord);
+	   droste = vec4(droste.r*red_norm,droste.g*green_norm,droste.b*blue_norm,droste.w);
+	   if (thresh_norm < 0.01)
+	   {
+	     original = vec4(0.,0.,0.,0.);
+	   } else {
+	    if ((droste.x+droste.y+droste.z)>thresh_norm) 
+	     original = thresh_norm * original;
+	   }
+	 }
+	}
+	gl_FragColor = original + droste;
+}
+]]>
+		</program>
+	</language>
+</jittershader>

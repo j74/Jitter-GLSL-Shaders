@@ -1,0 +1,51 @@
+<jittershader name="">
+	<param name="time" type="float" default="0.0" />
+	<param name="noise" type="float" default="-6.3" />
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.4">
+		<bind param="noise" program="fp" />
+		<bind param="time" program="fp" />
+		<bind param="tex0" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+
+void main(void)
+{
+    gl_Position     = ftransform();
+    // transform texcoords
+    texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+uniform sampler2DRect tex0;
+uniform float noise;
+uniform float time;
+float time_norm = 2.0 + (time+6.3)/6.0;
+float noise_norm = (noise+6.3)/12.7;
+float noise_fact = 0.0;
+vec2 resolution = textureSize(tex0,0);
+
+float rand(vec2 co){
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+}
+
+void main (void)
+{
+
+      // Add Noise
+      if(noise_norm > 0.1)
+      {
+       noise_fact = rand(sin(time_norm)*texcoord0/resolution);
+      }
+
+      vec4 a = vec4(texture2DRect(tex0, texcoord0));
+      gl_FragColor = noise_norm*vec4(noise_fact,noise_fact,noise_fact,1.0)+(1.0-noise_norm)*a;
+}
+]]>
+	</program>
+    </language>
+</jittershader>

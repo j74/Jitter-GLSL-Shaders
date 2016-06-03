@@ -1,0 +1,108 @@
+<jittershader name="">
+	<param name="glow" type="float" default="6.0" />
+	<param name="width" type="float" default="1.0" />
+	<param name="gain" type="float" default="-2.5" />
+	<param name="cancel" type="float" default="6.0" />
+	<param name="density" type="float" default="0.0" />
+	<param name="tex0" type="int" default="0" />
+	<param name="tex1" type="int" default="1" />
+	<language name="glsl" version="1.2">
+		<bind param="glow" program="fp" />
+		<bind param="width" program="fp" />
+		<bind param="gain" program="fp" />
+		<bind param="cancel" program="fp" />
+		<bind param="density" program="fp" />
+		<bind param="tex0" program="fp" />	
+		<bind param="tex1" program="fp" />	
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+
+void main()
+{
+    // perform standard transform on vertex
+    gl_Position = ftransform();
+
+    // transform texcoords
+    texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+    texcoord1 = vec2(gl_TextureMatrix[1] * gl_MultiTexCoord1);
+} 
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+uniform sampler2DRect tex0;
+uniform sampler2DRect tex1;
+uniform float width;
+uniform float cancel;
+uniform float gain;
+float gain_norm = (gain + 6.3);
+float width_norm = (width + 0.001) / 10.;
+uniform float glow;
+float glow_norm = (glow + 6.3)/12.7;
+uniform float density;
+float density_fog = density / 10.;
+
+void main()
+{ 
+
+	vec4 pr0 = texture2DRect(tex0,texcoord0);
+	vec2 off_A = vec2(texcoord0.x*width_norm*(-0.05),texcoord0.y*width_norm*(-0.05)); 
+	vec2 off_B = vec2(texcoord0.x*width_norm*(0.05),texcoord0.y*width_norm*(-0.05)); 
+	vec2 off_C = vec2(texcoord0.x*width_norm*(0.05),texcoord0.y*width_norm*(0.05)); 
+	vec2 off_D = vec2(texcoord0.x*width_norm*(-0.05),texcoord0.y*width_norm*(0.05)); 
+
+	vec2 coord1_A = texcoord0 + off_A;
+	vec2 coord1_B = texcoord0 + off_B;
+	vec2 coord1_C = texcoord0 + off_C;
+	vec2 coord1_D = texcoord0 + off_D;
+	float glowFactor1 = glow_norm;
+	vec4 pr1 = glowFactor1 * (texture2DRect(tex0,coord1_A) + texture2DRect(tex0,coord1_B) + texture2DRect(tex0,coord1_C) + texture2DRect(tex0,coord1_D))/4.;
+
+	vec2 coord2_A = coord1_A + off_A;
+	vec2 coord2_B = coord1_B + off_B;
+	vec2 coord2_C = coord1_C + off_C;
+	vec2 coord2_D = coord1_D + off_D;
+	float glowFactor2 = glowFactor1 * glow_norm;
+	vec4 pr2 = glowFactor2 * (texture2DRect(tex0,coord2_A) + texture2DRect(tex0,coord2_B) + texture2DRect(tex0,coord2_C) + texture2DRect(tex0,coord2_D))/4.;
+
+	vec2 coord3_A = coord2_A + off_A;
+	vec2 coord3_B = coord2_B + off_B;
+	vec2 coord3_C = coord2_C + off_C;
+	vec2 coord3_D = coord2_D + off_D;
+	float glowFactor3 = glowFactor2 * glow_norm;
+	vec4 pr3 = glowFactor3 * (texture2DRect(tex0,coord3_A) + texture2DRect(tex0,coord3_B) + texture2DRect(tex0,coord3_C) + texture2DRect(tex0,coord3_D))/4.;
+
+	vec2 coord4_A = coord3_A + off_A;
+	vec2 coord4_B = coord3_B + off_B;
+	vec2 coord4_C = coord3_C + off_C;
+	vec2 coord4_D = coord3_D + off_D;
+	float glowFactor4 = glowFactor3 * glow_norm;
+	vec4 pr4 = glowFactor4 * (texture2DRect(tex0,coord4_A) + texture2DRect(tex0,coord4_B) + texture2DRect(tex0,coord4_C) + texture2DRect(tex0,coord4_D))/4.;
+
+	vec2 coord5_A = coord4_A + off_A;
+	vec2 coord5_B = coord4_B + off_B;
+	vec2 coord5_C = coord4_C + off_C;
+	vec2 coord5_D = coord4_D + off_D;
+	float glowFactor5 = glowFactor4 * glow_norm;
+	vec4 pr5 = glowFactor5 * (texture2DRect(tex0,coord5_A) + texture2DRect(tex0,coord5_B) + texture2DRect(tex0,coord5_C) + texture2DRect(tex0,coord5_D))/4.;
+
+	vec2 coord6_A = coord5_A + off_A;
+	vec2 coord6_B = coord5_B + off_B;
+	vec2 coord6_C = coord5_C + off_C;
+	vec2 coord6_D = coord5_D + off_D;
+	float glowFactor6 = glowFactor5 * glow_norm;
+	vec4 pr6 = glowFactor6 * (texture2DRect(tex0,coord6_A) + texture2DRect(tex0,coord6_B) + texture2DRect(tex0,coord6_C) + texture2DRect(tex0,coord6_D))/4.;
+
+	vec4 avg = (1.0-cancel*glow_norm)*pr0+gain_norm*(pr0+pr1+pr2+pr3+pr4+pr5+pr6)/7.;
+	float fog_value = (1.0/width)*density_fog;
+
+	gl_FragColor = (vec4(fog_value,fog_value,fog_value,1.0) + avg);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

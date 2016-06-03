@@ -1,0 +1,158 @@
+<jittershader name="droste">
+	<param name="mix_X" type="float" default="6.4" />
+	<param name="mix_Y" type="float" default="6.4" />
+	<param name="select" type="float" default="-6.3" />	
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.0">
+		<bind param="mix_X" program="fp" /> 
+		<bind param="mix_Y" program="fp" /> 
+		<bind param="select" program="fp" /> 
+		<bind param="tex0" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+
+void main()
+{
+	gl_Position = ftransform();
+	texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+uniform sampler2DRect tex0;
+vec2 resolution = textureSize(tex0,0);
+uniform float select;
+uniform float mix_X;
+uniform float mix_Y;
+float mix_X_norm = (mix_X + 6.3)/12.7;
+float mix_Y_norm = (mix_Y + 6.3)/12.7;
+vec2 coord;
+vec2 transformed;
+vec2 lookup;
+
+vec2 ExpTrans(in vec2 c)
+{
+	vec2 trans;
+	trans.x = 0.5*(c.x)/exp(abs(c.x));
+	trans.y = 0.5*(c.y)/exp(abs(c.y));
+	return vec2((0.5+trans.x)*resolution.x,(0.5+trans.y)*resolution.y);
+}
+
+vec2 Atan1Trans(in vec2 c)
+{
+	float d;
+	vec2 trans;
+	d = atan(c.x,c.y);
+	trans.x = 0.5*(c.x)/(d);
+	trans.y = (c.y/2.0);
+	return vec2((0.5+trans.x)*resolution.x,(0.5+trans.y)*resolution.y);
+}
+
+vec2 Atan2Trans(in vec2 c)
+{
+	float d;
+	vec2 trans;
+	d = atan(c.x,c.y);
+	trans.x = 0.5*(c.x)/(d);
+	trans.y = 0.5*(c.y)/(d);
+	return vec2((0.5+trans.x)*resolution.x,(0.5+trans.y)*resolution.y);
+}
+
+vec2 DistTrans(in vec2 c)
+{
+	float d;
+	vec2 trans;
+	d = sqrt(c.x*c.x + c.y*c.y);
+	trans.x = 0.5*(c.x)/(d+0.1);
+	trans.y = 0.5*(c.y)/(d+0.1);
+	return vec2((0.5+trans.x)*resolution.x,(0.5+trans.y)*resolution.y);
+}
+
+vec2 TanTrans(in vec2 c)
+{
+	vec2 trans;
+	trans.x = 0.08/tan(abs(c.x)-0.5);
+	trans.y = 0.08/tan(abs(c.y)-0.5);
+	return vec2((0.5+trans.x)*resolution.x,(0.5+trans.y)*resolution.y);
+}
+
+vec2 SinTrans(in vec2 c)
+{
+	vec2 trans;
+	trans.x = sin(abs(c.x)-0.5);
+	trans.y = sin(abs(c.y)-0.5);
+	return vec2((0.5+trans.x)*resolution.x,(0.5+trans.y)*resolution.y);
+}
+
+vec2 LogTrans(in vec2 c)
+{
+	vec2 trans;
+	trans.x = 1.0+log(abs(c.x));
+	trans.y = 1.0+log(abs(c.y));
+	return vec2((0.5+trans.x)*resolution.x,(0.5+trans.y)*resolution.y);
+}
+
+vec2 ProxTrans(in vec2 c)
+{
+	float d;
+	vec2 trans;
+	d = sqrt(c.x*c.x + c.y*c.y);
+	trans.x = 0.5*(c.x)*(d);
+	trans.y = 0.5*(c.y)*(d);
+	return vec2((0.5+trans.x)*resolution.x,(0.5+trans.y)*resolution.y);
+}
+
+vec2 RAtan1Trans(in vec2 c)
+{
+	float d;
+	vec2 trans;
+	d = abs(atan(c.x,c.y));
+	trans.x = 0.25*(c.x)*(d);
+	trans.y = (c.y/2.0);
+	return vec2((0.5+trans.x)*resolution.x,(0.5+trans.y)*resolution.y);
+}
+
+vec2 RExpTrans(in vec2 c)
+{
+	vec2 trans;
+	trans.x = 0.18*(c.x)*exp(abs(c.x));
+	trans.y = 0.18*(c.y)*exp(abs(c.y));
+	return vec2((0.5+trans.x)*resolution.x,(0.5+trans.y)*resolution.y);
+}
+
+void main()
+{   
+
+	coord.x = 2.0*((texcoord0.x/resolution.x)-0.5);
+	coord.y = 2.0*((texcoord0.y/resolution.y)-0.5);
+	if (select < -5.3)
+ 	 transformed = DistTrans(coord);
+	if ((select >= -5.3)&&(select < -4.3))
+ 	 transformed = ExpTrans(coord);
+	if ((select >= -4.3)&&(select < -3.3))
+ 	 transformed = Atan1Trans(coord);
+	if ((select >= -3.3)&&(select < -2.3))
+ 	 transformed = Atan2Trans(coord);
+	if ((select >= -2.3)&&(select < -1.3))
+ 	 transformed = TanTrans(coord);
+	if ((select >= -1.3)&&(select < -0.3))
+ 	 transformed = SinTrans(coord);
+	if ((select >= -0.3)&&(select < +0.3))
+ 	 transformed = LogTrans(coord);
+	if ((select >= +0.3)&&(select < +1.3))
+ 	 transformed = ProxTrans(coord);
+	if ((select >= +1.3)&&(select < +2.3))
+ 	 transformed = RAtan1Trans(coord);
+	if ((select >= +2.3)&&(select < +3.3))
+ 	 transformed = RExpTrans(coord);
+	lookup.x = mix(texcoord0.x,transformed.x,mix_X_norm);
+	lookup.y = mix(texcoord0.y,transformed.y,mix_Y_norm);
+	gl_FragColor = texture2DRect(tex0,lookup);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

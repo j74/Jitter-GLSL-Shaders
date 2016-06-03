@@ -1,0 +1,114 @@
+<jittershader name="depth">
+	<param name="distance" type="float" default="0.0" />
+	<param name="blur" type="float" default="0.0" />
+	<param name="blur_gain1" type="float" default="0.0" />
+	<param name="blur_gain2" type="float" default="0.0" />
+	<param name="focus_area" type="float" default="0.0" />
+	<param name="focus_point" type="float" default="0.0" />
+	<param name="intensity" type="float" default="0.0" />
+	<param name="thresh" type="float" default="-6.3" />
+	<param name="fog" type="float" default="0.0" />
+	<param name="tex0" type="int" default="0" />
+	<param name="tex1" type="int" default="1" />
+	<language name="glsl" version="1.0">
+		<bind param="blur" program="fp" />
+		<bind param="thresh" program="fp" />
+		<bind param="blur_gain1" program="fp" />
+		<bind param="blur_gain2" program="fp" />
+		<bind param="intensity" program="fp" />
+		<bind param="focus_point" program="fp" />
+		<bind param="focus_area" program="fp" />
+		<bind param="distance" program="fp" />
+		<bind param="fog" program="fp" />
+		<bind param="tex0" program="fp" />
+		<bind param="tex1" program="fp" />	
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+
+void main()
+{
+    // perform standard transform on vertex
+    gl_Position = ftransform();
+
+    // transform texcoords
+    texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+    texcoord1 = vec2(gl_TextureMatrix[1] * gl_MultiTexCoord1);
+} 
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+uniform sampler2DRect tex0;
+uniform sampler2DRect tex1;
+uniform float blur;
+uniform float blur_gain1;
+uniform float blur_gain2;
+uniform float intensity;
+uniform float focus_point;
+uniform float focus_area;
+uniform float thresh;
+uniform float distance;
+uniform float fog;
+float blur_norm = (6.4 + blur)/2.0;
+float fog_norm = (6.3 + fog)/6.4;
+float blur_gain1_norm = (6.3 + blur_gain1)/12.7;
+float blur_gain2_norm = (6.3 + blur_gain2)/12.7;
+float thresh_norm = (6.3 + thresh)/12.7;
+float focus_area_norm = 1.2 + (0.8 + focus_area)/2.0;
+float intensity_norm = (6.3 + intensity)/12.7;
+float focus_point_norm = (6.3 + focus_point)/25.6;
+float distance_norm = (6.4 + distance)/6.4;
+vec4 depth_val;
+vec4 text_val;
+
+void main()
+{   
+	float a,b;
+	vec2 wi = vec2(0.,0.);
+	vec4 text_val0 = texture2DRect(tex1, texcoord1);
+	vec4 text_val1 = texture2DRect(tex1, vec2(texcoord1.x,texcoord1.y+1));
+	vec4 text_val2 = texture2DRect(tex1, vec2(texcoord1.x,texcoord1.y-1));
+	vec4 text_val3 = texture2DRect(tex1, vec2(texcoord1.x+1,texcoord1.y));
+	vec4 text_val4 = texture2DRect(tex1, vec2(texcoord1.x-1,texcoord1.y));
+	vec4 text_val = max(text_val0,max(text_val1,max(text_val2,max(text_val3,text_val4))));  
+
+	if (text_val.r > 0.0)
+	{
+	 text_val.r = text_val.r + intensity_norm*(1.0 - focus_area_norm/exp((pow((text_val.r-focus_point_norm),2.0))/0.08));
+	 text_val.g = text_val.g + intensity_norm*(1.0 - focus_area_norm/exp((pow((text_val.g-focus_point_norm),2.0))/0.08));
+	 a = (blur_norm)*(pow(text_val.r*blur_gain1_norm,distance_norm));
+	 b = (blur_norm)*(pow(text_val.g*blur_gain2_norm,distance_norm));
+	 depth_val = vec4(a,b,0.,1.);
+	 if ((depth_val.r>thresh_norm)&&(depth_val.g>thresh_norm))
+	 {
+	  wi = vec2(a,b);
+ 	 }
+	}
+
+	vec2 texcoordM = texcoord0;
+    	vec2 texcoordB0 = texcoord0 - wi;
+    	vec2 texcoordF0 = texcoord0 + wi;
+    	vec2 texcoordB1 = texcoord0 - wi * 2.0;
+    	vec2 texcoordF1 = texcoord0 + wi * 2.0;
+    	vec2 texcoordB2 = texcoord0 - wi * 3.0;
+    	vec2 texcoordF2 = texcoord0 + wi * 3.0;
+    	vec4 sampleM  = texture2DRect(tex0, texcoordM);
+    	vec4 sampleB0 = texture2DRect(tex0, texcoordB0);
+    	vec4 sampleF0 = texture2DRect(tex0, texcoordF0);
+    	vec4 sampleB1 = texture2DRect(tex0, texcoordB1);
+    	vec4 sampleF1 = texture2DRect(tex0, texcoordF1);
+    	vec4 sampleB2 = texture2DRect(tex0, texcoordB2);
+    	vec4 sampleF2 = texture2DRect(tex0, texcoordF2);
+
+	float foggy = fog_norm*distance_norm*(wi.x+wi.y)/2.0;
+
+    	gl_FragColor = (1.- foggy)*(0.1752 * sampleM + 0.1658 * (sampleB0 + sampleF0) + 0.1403 * (sampleB1 + sampleF1) + 0.1063 * (sampleB2 + sampleF2));
+}
+]]>
+		</program>
+	</language>
+</jittershader>

@@ -1,0 +1,122 @@
+<jittershader name="lumagauss">
+	<param name="scale" type="float" default="0." />
+	<param name="thresh" type="float" default="0.9" />
+	<param name="gain1" type="float" default="1.0" />
+	<param name="gain2" type="float" default="1.0" />
+	<param name="invert" type="float" default="0." />
+	<param name="mode" type="float" default="0." />
+	<param name="tex0" type="int" default="0" />
+	<param name="tex1" type="int" default="1" />
+	<language name="glsl" version="1.0">
+		<bind param="scale" program="fp" />
+		<bind param="invert" program= "fp" />
+		<bind param="mode" program= "fp" />
+		<bind param="thresh" program="fp" />
+		<bind param="gain1" program="fp" />
+		<bind param="gain2" program="fp" />
+		<bind param="tex0" program="fp" />
+		<bind param="tex1" program="fp" />	
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+varying vec2 texdim0;
+varying vec2 texdim1;
+varying vec2 texorient0;
+varying vec2 texorient1;
+
+void main()
+{
+    // perform standard transform on vertex
+    gl_Position = ftransform();
+
+    // transform texcoords
+    texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+    texcoord1 = vec2(gl_TextureMatrix[1] * gl_MultiTexCoord1);
+    // extract the x and y scalars from the texture matrix to determine dimensions
+    texdim0 = vec2 (abs(gl_TextureMatrix[0][0][0]),abs(gl_TextureMatrix[0][1][1]));
+    texdim1 = vec2 (abs(gl_TextureMatrix[1][0][0]),abs(gl_TextureMatrix[1][1][1]));
+    // extract the sign for orientation
+    texorient0 = vec2 (gl_TextureMatrix[0][0][0]/texdim0.x,gl_TextureMatrix[0][1][1]/texdim0.y);
+    texorient1 = vec2 (gl_TextureMatrix[1][0][0]/texdim1.x,gl_TextureMatrix[1][1][1]/texdim1.y);
+} 
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+
+//setup for 2 texture
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+uniform sampler2DRect tex0;
+uniform sampler2DRect tex1;
+
+//wipe state
+uniform float scale;
+float scale_norm = (6.4 + scale)/2.0;
+uniform float mode;
+uniform float invert;
+uniform float gain1;
+uniform float gain2;
+uniform float thresh;
+float thresh_norm = (6.4 + thresh)/12.7;
+vec4 depth_val;
+vec4 text_val;
+
+void main()
+{   
+	float a,b;
+	vec2 wi = vec2(0.,0.);
+	text_val = texture2DRect(tex1, texcoord1);
+
+	if (mode>=0.0)
+	{
+	 if (invert>=0.0)
+	 {
+	  depth_val.r = gain1 - gain2 * text_val.r;
+	  depth_val.g = gain1 - gain2 * text_val.g;
+	  depth_val.b = gain1 - gain2 * text_val.b;
+	 }
+	 else
+	 {
+	  depth_val.r = gain2 * text_val.r - gain1;
+	  depth_val.g = gain2 * text_val.g - gain1;
+	  depth_val.b = gain2 * text_val.b - gain1;
+	 }
+	 depth_val.a = 1.;
+	 a = 1.-(scale_norm*depth_val.r);
+	 b = 1.-(scale_norm*depth_val.g);
+	}
+	else
+	{
+	 a = (scale_norm/5.)*sqrt(text_val.r*gain1);
+	 b = (scale_norm/5.)*sqrt(text_val.g*gain2);
+	 depth_val = vec4(a,b,0.,1.);
+	}
+
+	if ((depth_val.r>thresh_norm)&&(depth_val.g>thresh_norm))
+	{
+	 wi = vec2(a,b);
+	}
+
+	vec2 texcoordM = texcoord0;
+    	vec2 texcoordB0 = texcoord0 - wi;
+    	vec2 texcoordF0 = texcoord0 + wi;
+    	vec2 texcoordB1 = texcoord0 - wi * 2.0;
+    	vec2 texcoordF1 = texcoord0 + wi * 2.0;
+    	vec2 texcoordB2 = texcoord0 - wi * 3.0;
+    	vec2 texcoordF2 = texcoord0 + wi * 3.0;
+    	vec4 sampleM  = texture2DRect(tex0, texcoordM);
+    	vec4 sampleB0 = texture2DRect(tex0, texcoordB0);
+    	vec4 sampleF0 = texture2DRect(tex0, texcoordF0);
+    	vec4 sampleB1 = texture2DRect(tex0, texcoordB1);
+    	vec4 sampleF1 = texture2DRect(tex0, texcoordF1);
+    	vec4 sampleB2 = texture2DRect(tex0, texcoordB2);
+    	vec4 sampleF2 = texture2DRect(tex0, texcoordF2);
+
+    	gl_FragColor = 0.1752 * sampleM + 0.1658 * (sampleB0 + sampleF0) + 0.1403 * (sampleB1 + sampleF1) + 0.1063 * (sampleB2 + sampleF2);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

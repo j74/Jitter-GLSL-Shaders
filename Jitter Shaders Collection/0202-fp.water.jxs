@@ -1,0 +1,100 @@
+<jittershader name="">
+	<param name="freq" type="float" default="1.8" />
+	<param name="amp_x" type="float" default="-4.5" />
+	<param name="amp_y" type="float" default="-5.0" />
+	<param name="radius" type="float" default="0.6" />
+	<param name="level" type="float" default="2.5" />
+	<param name="time" type="float" default="-6.4" />
+	<param name="tex0" type="int" default="0" />
+	<param name="mode" type="float" default="0.0" />
+	<language name="glsl" version="1.4">
+		<bind param="tex0" program="fp" />
+		<bind param="freq" program="fp" />
+		<bind param="amp_x" program="fp" />
+		<bind param="amp_y" program="fp" />
+		<bind param="radius" program="fp" />
+		<bind param="level" program="fp" />
+		<bind param="time" program="fp" />
+		<bind param="mode" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+
+void main(void)
+{
+    gl_Position     = ftransform();
+    // transform texcoords
+    texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+uniform float freq;
+uniform float amp_x;
+uniform float amp_y;
+uniform float radius;
+uniform float level;
+uniform float time;
+uniform float mode;
+uniform sampler2DRect tex0;
+
+vec2 amp = vec2((6.4+amp_x),(6.4+amp_y));
+vec2 resolution = textureSize(tex0,0);
+
+float x0 = (resolution.x / 2.0) * ((6.4 + level)/6.4) ;
+float y0 = (resolution.y / 2.0) * ((6.4 + level)/6.4) ;
+float radium_norm = radius * 10.0;
+float sign = 1.0;
+
+const float C_PI    = 3.1415;
+const float C_2PI   = 2.0 * C_PI;
+const float C_2PI_I = 1.0 / (2.0 * C_PI);
+const float C_PI_2  = C_PI / 2.0;
+float time_norm = C_2PI * (6.4 - time) / 12.8;
+
+void main (void)
+{
+    vec2  perturb;
+    float rad;
+    vec4  color;
+
+   if (mode > 0.0) {
+    sign = -1.0;
+   }
+
+   if (sign * texcoord0.t > sign * y0) {
+    // Below the horizon apply waves and refex
+    // 1. Prepare the horizon line on y-direction (underneath pickup the reflex of the image)
+    vec2 new_coord = vec2(texcoord0.s,2.0 * y0 - texcoord0.t);
+
+    // 2. Compute a perturbation factor for the x-direction on the reflex
+    float factor_x = (texcoord0.s - x0) / (resolution.x - x0);
+    float factor_y = (texcoord0.t - y0) / (resolution.y - y0);
+    perturb.x  = (1.0 - factor_y) * amp.x * radium_norm * cos(C_2PI * freq * freq * (1.0/factor_y) + time_norm);
+    rad = (texcoord0.s - texcoord0.t + radium_norm) * freq;
+
+    // 3. Compute a perturbation factor for the y-direction on the reflex
+    rad = rad * C_2PI_I;
+    rad = fract(rad);
+    rad = rad * C_2PI;
+    if (rad >  C_PI) rad = rad - C_2PI;
+    if (rad < -C_PI) rad = rad + C_2PI;
+    if (rad >  C_PI_2) rad =  C_PI - rad;
+    if (rad < -C_PI_2) rad = -C_PI - rad;
+    perturb.y  = (rad - (rad * rad * rad / 6.0)) * amp.y * 0.2 * factor_y;
+
+    // 4. New color with waves on the reflex under the horizon
+    color = vec4 (texture2DRect(tex0, perturb + new_coord));
+
+   }  else {
+    // Above the horizon no change
+    color = vec4 (texture2DRect(tex0, texcoord0));
+   }
+   gl_FragColor = color;
+}
+]]>
+	</program>
+    </language>
+</jittershader>

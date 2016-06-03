@@ -1,0 +1,26 @@
+<jittershader name="passthrough">
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.0">
+		<bind param="tex0" program="fp" />	
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+void main()
+{
+	gl_Position = ftransform();
+	texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+uniform sampler2DRect tex0;
+void main(void)
+{
+    gl_FragColor = vec4 (texture2DRect(tex0,texcoord0));
+}
+]]>
+		</program>
+	</language>
+</jittershader>
