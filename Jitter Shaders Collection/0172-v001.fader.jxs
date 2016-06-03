@@ -1,0 +1,12 @@
+<jittershader name="Fade to Color"> 
+	<param name="color" type="vec4" default="0.0 0.0 0.0 0.0" /> 
+	<param name="amount" type="float" default="0.0" /> 
+	<param name="tex0" type="int" default="0" /> 
+	<language name="glsl" version="1.0"> 
+		<bind param="color" program="fp" /> 
+		<bind param="amount" program="fp" /> 
+		<bind param="tex0" program="fp" /> 
+		<program name="vp" type="vertex" source="v001.fader.vp.glsl" /> 
+		<program name="fp" type="fragment" source="v001.fader.fp.glsl" /> 
+	</language> 
+</jittershader> 

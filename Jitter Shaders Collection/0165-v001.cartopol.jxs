@@ -1,0 +1,7 @@
+<jittershader name="2 Pass Blur"> 
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<program name="vp" type="vertex" source="v001.cartopol.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.cartopol.fp.glsl" /> 
+	</language> 
+</jittershader> 

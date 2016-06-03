@@ -1,0 +1,9 @@
+<jittershader name="Threshold"> 
+<param name="levels" type="float" default="2" /> 
+<language name="glsl" version="1.0"> 
+<bind param="levels" program="fp" /> 
+<bind param="tex0" program="fp" /> 
+<program name="vp" type="vertex" source="v001.posterize.vp.glsl" /> 
+<program name="fp" type="fragment" source="v001.posterize.fp.glsl" /> 
+</language> 
+</jittershader> 

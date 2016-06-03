@@ -1,0 +1,90 @@
+<jittershader name="analogglitch">
+    <description>
+    broken tv distortion
+    </description>
+    <param name="barsamount" type="float" default="1." />
+    <param name="distortion" type="float" default="1." />
+    <param name="vsync" type="float" default="0." />
+    <param name="hsync" type="float" default="0." />
+    <param name="resolution" type="int" default="2" />
+    <param name="tex0" type="int" default="0" />
+    <param name="tex1" type="int" default="1" />
+    <language name="glsl" version="1.0">
+	<bind param="tex0" program="fp" />
+	<bind param="tex1" program="fp" />
+        <bind param="barsamount" program="fp" />
+        <bind param="distortion" program="fp" />
+        <bind param="resolution" program="fp" />
+        <bind param="vsync" program="fp" />
+        <bind param="hsync" program="fp" />
+        <program name="vp" type="vertex">
+<![CDATA[
+
+varying vec2 texcoord0;
+varying vec2 texdim0;
+
+void main()
+{
+    // perform standard transform on vertex
+    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+
+    // transform texcoords
+    texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+	// extract the x and y scalars from the texture matrix to determine dimensions
+	texdim0 = vec2( abs(gl_TextureMatrix[0][0][0]), abs(gl_TextureMatrix[0][1][1]));
+	
+}
+]]>
+        </program>
+
+ <program name="fp" type="fragment">
+<![CDATA[
+
+// define our rectangular texture samplers 
+uniform sampler2DRect tex0;
+uniform sampler2DRect tex1;	// bars and distortion texture
+varying vec2 texdim0;
+
+uniform float barsamount;	// changes bars amount
+uniform float distortion;	// amount of distortion
+uniform int resolution;		// for scanlines
+uniform float vsync;		// sync
+uniform float hsync;
+varying vec2 texcoord0;
+
+void main (void) 
+{ 		
+	vec2 point = texcoord0/texdim0;
+	vec2 original = point;
+
+	vec4 bars = texture2DRect(tex1, texcoord0);
+
+	// scanlines
+	vec4 stripes; // our base 'stripe color'
+	stripes = vec4(floor(mod(texcoord0.y, float(resolution)+0.0001)));
+	stripes = clamp(stripes, 0.0, 1.0);
+	stripes = 2.0 - (stripes - vec4(0.)); // subtract
+
+	// get rough luma 
+	vec4 key = texture2DRect(tex0, (vec2(point.y, point.y)) * texdim0);
+	key += texture2DRect(tex0, (1.0 - vec2(point.y, point.y)) * texdim0);
+	key -= bars.r;
+	//key *= 0.33;
+	float d = key.r + key.g + key.b;
+	d /= 3.0;
+	point.x -= d * distortion * 0.1;	
+
+	//sync			
+	vec2 texcoord = point + ( mod(vec2(hsync, vsync), 1.0)); 
+	
+	// wrap
+	texcoord = mod(texcoord, 1.0);
+	
+	// output
+	vec4 result = stripes * texture2DRect(tex0, texcoord * texdim0);
+	gl_FragColor = mix(result, bars*result, barsamount);
+} 
+]]>	
+		</program>
+    </language>
+</jittershader> 

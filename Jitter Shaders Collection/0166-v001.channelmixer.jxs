@@ -1,0 +1,18 @@
+<jittershader name="2 Pass Blur"> 
+	<param name="desaturation" type="float" default="0." />
+	<param name="red" type="vec3" default="1. 0. 0." />
+	<param name="green" type="vec3" default="0. 1. 0." />
+	<param name="blue" type="vec3" default="0. 0. 1." />
+	<param name="gray" type="vec3" default="0.333 0.333 .333" />
+	
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<bind param="desaturation" program="fp" />
+		<bind param="red" program="fp" />
+		<bind param="green" program="fp" />
+		<bind param="blue" program="fp" />
+		<bind param="gray" program="fp" />
+		<program name="vp" type="vertex" source="v001.channelmixer.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.channelmixer.fp.glsl" /> 
+	</language> 
+</jittershader> 

@@ -1,0 +1,17 @@
+<jittershader name="Exposure"> 
+	<param name="amount" type="float" default="12." />
+	<param name="angle" type="float" default="0." />
+	<param name="color" type="vec4" default="0. 0. 0. 1." />
+	<param name="origin" type="float" default="0." />
+	<param name="mirror" type="float" default="1." />
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<bind param="amount" program="fp" />
+		<bind param="color" program="fp" />
+		<bind param="origin" program="fp" />
+		<bind param="angle" program="fp" />
+		<bind param="mirror" program="fp" />
+		<program name="vp" type="vertex" source="v001.stripes.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.stripes.fp.glsl" /> 
+	</language> 
+</jittershader> 

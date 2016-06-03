@@ -1,0 +1,14 @@
+<jittershader name="Duo Tone"> 
+	<param name="lowcolor" type="vec4" default="1. 0.0 0.0 1." />
+	<param name="highcolor" type="vec4" default="1. 1. 0.0 1." />
+	<param name="thresh" type="float" default="0.8" />
+	<param name="tex0" type="int" default="0" /> 
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<bind param="thresh" program="fp" />
+		<bind param="highcolor" program="fp" />
+		<bind param="lowcolor" program="fp" />
+		<program name="vp" type="vertex" source="v001.duotone.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.duotone.fp.glsl" /> 
+	</language> 
+</jittershader> 

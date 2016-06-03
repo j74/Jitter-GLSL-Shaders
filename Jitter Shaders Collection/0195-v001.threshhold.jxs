@@ -1,0 +1,12 @@
+<jittershader name="Threshold"> 
+<param name="thresh" type="vec4" default="0.0 0.0 0.0 0.0" /> 
+<param name="swap" type="bool" default="false" /> 
+<param name="tex0" type="int" default="0" /> 
+<language name="glsl" version="1.0"> 
+<bind param="thresh" program="fp" /> 
+<bind param="swap" program="fp" /> 
+<bind param="tex0" program="fp" /> 
+<program name="vp" type="vertex" source="v001.threshhold.vp.glsl" /> 
+<program name="fp" type="fragment" source="v001.threshhold.fp.glsl" /> 
+</language> 
+</jittershader> 

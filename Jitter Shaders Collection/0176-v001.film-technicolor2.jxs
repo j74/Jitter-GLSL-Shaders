@@ -1,0 +1,10 @@
+<jittershader name="Technicolor1 2 Strip Emulation"> 
+	<param name="tex0" type="int" default="0" />
+	<param name="amount" type="float" default="1." />
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<bind param="amount" program="fp" />
+		<program name="vp" type="vertex" source="v001.film-technicolor2.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.film-technicolor2.fp.glsl" /> 
+	</language> 
+</jittershader> 

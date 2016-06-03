@@ -1,0 +1,13 @@
+<jittershader name="2 Pass Blur"> 
+	<param name="brightness" type="float" default="1." />
+	<param name="exposure" type="float" default="1." />
+	<param name="lumacomponents" type="vec3" default="1. 1. 1." />
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<bind param="exposure" program="fp" />
+		<bind param="brightness" program="fp" />
+		<bind param="lumacomponents" program="fp" />
+		<program name="vp" type="vertex" source="v001.blackandwhite.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.blackandwhite.fp.glsl" /> 
+	</language> 
+</jittershader> 

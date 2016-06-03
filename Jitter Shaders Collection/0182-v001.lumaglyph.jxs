@@ -1,0 +1,16 @@
+<jittershader name="Exposure"> 
+	<param name="tex0" type="int" default="0" />
+	<param name="tex1" type="int" default="1" />
+	<param name="scale" type="float" default="0." />
+	<param name="amount" type="float" default="0." />
+	<param name="glyph" type="float" default="0." />	
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<bind param="tex1" program="fp" />
+		<bind param="scale" program="fp" />
+		<bind param="amount" program="fp" />
+		<bind param="glyph" program="fp" />
+		<program name="vp" type="vertex" source="v001.lumaglyph.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.lumaglyph.fp.glsl" /> 
+	</language> 
+</jittershader> 

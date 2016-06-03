@@ -1,0 +1,13 @@
+<jittershader name="Pinch"> 
+	<param name="pinch" type="float" default="0.0" />
+	<param name="origin" type="vec2" default="-0.5 -0.5" />
+	
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<bind param="pinch" program="vp" />
+		<bind param="origin" program="fp" />
+
+		<program name="vp" type="vertex" source="v001.pinch.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.pinch.fp.glsl" /> 
+	</language> 
+</jittershader> 

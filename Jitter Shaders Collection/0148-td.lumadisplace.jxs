@@ -1,0 +1,55 @@
+<jittershader name="lumadisplace">
+	<description>
+	Luminance based texture displacement
+	</description>
+	<param name="amp" type="vec2" default="0.1 0.1 0.0 1.0">
+		<description>Amplitude of displacement (x,y)</description>
+	</param>
+	<param name="offset" type="float" default="-0.1">
+		<description>Offset</description>
+	</param>
+	<param name="texdim" type="vec2" state="TEXDIM0" />
+	<language name="arb" version="1.0">
+		<bind param="amp" program="fp" target="env[0]" />
+		<bind param="offset" program="fp" target="env[1]" />
+		<bind param="texdim" program="fp" target="env[2]" />
+		<program name="vp" type="vertex" source="sh.passthru.vp.arb" />
+		<program name="fp" type="fragment">
+<![CDATA[
+!!ARBfp1.0
+
+# Copyright 2005 Cycling '74
+# luminance based spatial distortion shader 
+
+PARAM amp = program.env[0];
+PARAM offset = program.env[1];
+PARAM texdim = program.env[2];
+
+TEMP t0,t1,t2,t3;
+
+# get texture coordinate and value
+MOV t0, fragment.texcoord[0];
+TEX t2, t0, texture[0], RECT;
+
+# calculate brightness of pixel
+DP3 t1.w, t2, t2;
+RSQ t1.w, t1.w;
+RCP t3.xy, t1.w;
+
+# offset/scale 
+ADD t3, t3, offset;
+MUL t3, t3, amp;
+MUL t3, t3, texdim;
+
+# add to the input texture position
+ADD t0, t0, t3;
+TEX t0, t0, texture[0], RECT;
+
+# move to result value 
+MOV result.color, t0;
+
+END
+]]>
+		</program>
+	</language>
+</jittershader>

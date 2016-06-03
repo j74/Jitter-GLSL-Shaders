@@ -1,0 +1,13 @@
+<jittershader name="2 Pass Blur"> 
+	<param name="clamp" type="vec2" default="1. 1." />
+	<param name="origin" type="vec2" default="0. 0." />
+	<param name="width" type="vec2" default="0. 0." />
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<bind param="clamp" program="fp" />
+		<bind param="origin" program="fp" />
+		<bind param="width" program="fp" />
+		<program name="vp" type="vertex" source="v001.clamp.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.clamp.fp.glsl" /> 
+	</language> 
+</jittershader> 

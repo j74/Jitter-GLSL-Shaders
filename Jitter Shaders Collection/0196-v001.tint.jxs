@@ -1,0 +1,11 @@
+<jittershader name="2 Pass Blur"> 
+	<param name="amount" type="float" default="1." />
+	<param name="color" type="vec3" default="0. 0. 0." />
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<bind param="amount" program="fp" />
+		<bind param="color" program="fp" />
+		<program name="vp" type="vertex" source="v001.tint.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.tint.fp.glsl" /> 
+	</language> 
+</jittershader> 

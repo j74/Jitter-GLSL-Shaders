@@ -1,0 +1,13 @@
+<jittershader name="2 Pass Blur">
+	<param name="redoffset" type="vec2" default="0. 0." />
+	<param name="greenoffset" type="vec2" default="0. 0." />
+	<param name="blueoffset" type="vec2" default="0. 0." />
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<bind param="redoffset" program="fp" />
+		<bind param="blueoffset" program="fp" />
+		<bind param="greenoffset" program="fp" />
+		<program name="vp" type="vertex" source="v001.colorseparator.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.colorseparator.fp.glsl" /> 
+	</language> 
+</jittershader>

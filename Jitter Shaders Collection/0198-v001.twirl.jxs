@@ -1,0 +1,14 @@
+<jittershader name="Twirl"> 
+	<param name="twirl" type="float" default="0." />
+	<param name="size" type="float" default="0.5" />
+
+	<param name="origin" type="vec2" default="0. 0." />
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="vp" />
+		<bind param="twirl" program="fp" />
+		<bind param="size" program="fp" />
+		<bind param="origin" program="fp" />
+		<program name="vp" type="vertex" source="v001.twirl.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.twirl.fp.glsl" /> 
+	</language> 
+</jittershader> 

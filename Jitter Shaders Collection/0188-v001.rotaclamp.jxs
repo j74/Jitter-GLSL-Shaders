@@ -1,0 +1,15 @@
+<jittershader name="2 Pass Blur">
+	<param name="width" type="vec2" default="0. 0." />
+	<param name="clamp" type="vec2" default="0. 0." />
+	<param name="anchor" type="vec2" default="0.5 0.5" />
+	<param name="theta" type="float" default="0." />
+	<language name="glsl" version="1.0"> 
+		<bind param="tex0" program="fp" />
+		<bind param="width" program="fp" />
+		<bind param="clamp" program="fp" />
+		<bind param="anchor" program="fp" />
+		<bind param="theta" program="fp" />
+		<program name="vp" type="vertex" source="v001.rotaclamp.vp.glsl" />
+		<program name="fp" type="fragment" source="v001.rotaclamp.fp.glsl" /> 
+	</language> 
+</jittershader>

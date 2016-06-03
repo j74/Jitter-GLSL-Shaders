@@ -1,0 +1,89 @@
+<jittershader name="sinefold">
+	<description>
+	Ripple-like spatial displacement
+	</description>
+	<param name="amp" type="float" default="0.1">
+		<description>Amplitude of ripple</description>
+	</param>
+	<param name="center" type="vec2" default="0.5 0.5 0.0 1.0">
+		<description>Center point of ripple (x,y)</description>
+	</param>
+	<param name="freq" type="vec2" default="100. 100. 0.0 1.0">	
+		<description>Frequency of ripple (x,y)</description>
+	</param>
+	<param name="phase" type="float" default="0.0">
+		<description>Phase of ripple</description>
+	</param>
+	<param name="damp" type="float" default="0.0">
+		<description>Damping of ripple</description>
+	</param>
+	<param name="texdim" type="vec2" state="TEXDIM0" />
+	<language name="arb" version="1.0">
+		<bind param="amp" program="fp" target="env[0]" />
+		<bind param="center" program="fp" target="env[1]" />
+		<bind param="freq" program="fp" target="env[2]" />
+		<bind param="phase" program="fp" target="env[3]" />
+		<bind param="damp" program="fp" target="env[4]" />
+		<bind param="texdim" program="fp" target="env[5]" />
+		<program name="vp" type="vertex" source="sh.passthru.vp.arb" />
+		<program name="fp" type="fragment"> 
+<![CDATA[
+!!ARBfp1.0
+
+# Copyright 2005 Cycling '74
+# sinewave spatial distortion shader 
+
+PARAM amp = program.env[0];
+PARAM center = program.env[1];
+PARAM freq = program.env[2];
+PARAM phase = program.env[3];
+PARAM damp = program.env[4]; 
+PARAM texdim = program.env[2];
+
+TEMP t0,t1,t2;
+
+# get texture coordinate
+MOV t0, fragment.texcoord;
+
+# calculate distance from the center, 
+# scaling distance based on frequency(x and y component)
+SUB t2, t0, center;
+MUL t1, t2, freq;
+DP3 t1.w, t1, t1;
+RSQ t1.w, t1.w;
+RCP t1.w, t1.w;
+
+# true distance
+DP3 t1.x, t2, t2;
+RSQ t1.x, t1.x;
+
+# divide difference by mag to maintain direction. 
+# also interesting if left out or if distance scaled 
+# by square of magnitude or some other math
+MUL t2, t2, t1.x;
+RCP t1.x, t1.x;
+
+# set sine phase based on mag distance plus a phase offset
+ADD t1.w, t1.w, phase;
+SIN t1.w, t1.w;
+
+# multiply sine by amplitude and distance from the center
+MUL t1.y, t1.x, damp;
+SUB_SAT t1.y, 1, t1.y;
+MUL t1.w, t1.w, t1.y;
+MUL t1.w, t1.w, amp;
+MUL t2, t2, t1.w;
+
+# add to the input texture position
+ADD t0, t0, t2;
+TEX t0, t0, texture[0], RECT;
+
+# move to result value 
+MUL t0, t0, fragment.color;
+MOV result.color, t0;
+
+END
+]]>		
+		</program>
+	</language>
+</jittershader>
