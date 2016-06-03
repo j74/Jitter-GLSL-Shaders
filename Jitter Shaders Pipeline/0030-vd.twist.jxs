@@ -1,0 +1,39 @@
+<jittershader name="twist">
+	<param name="amount" type="float" default="5" />
+	<param name="modelViewProj" type="mat4" state="MODELVIEW_PROJECTION_MATRIX" transform="IDENTITY"/> 
+	<language name="cg" version="1.0">
+		<bind param="amount" program="twister" />
+		<bind param="modelViewProj" program="twister" />
+		<program name="twister" type="vertex" entry="twist">
+<![CDATA[
+struct VertOutput {
+  float4 result : POSITION;
+  float4 color    : COLOR;
+};
+
+VertOutput twist(float4 myinput : POSITION,
+                 float4 color    : COLOR,
+                 const uniform float4x4 modelViewProj,
+                 uniform float amount)
+{	
+  VertOutput OUT;
+  float4 pos;
+  float angle = amount * length(myinput);
+  float cosLength, sinLength;
+  sincos(angle, sinLength, cosLength);
+  pos[0] = cosLength * myinput[0] +
+                   -sinLength * myinput[1];
+  pos[1] = sinLength * myinput[0] +
+                    cosLength * myinput[1];
+  pos[2] = 0;
+  pos[3] = 1;
+  
+  OUT.result = mul(modelViewProj, pos);
+  OUT.color = color;
+  return OUT;	
+}
+]]>		
+		</program>
+		<program name="passthru" type="fragment" source="sh.passthru.fp.cg" entry="passthru" />
+	</language>
+</jittershader>

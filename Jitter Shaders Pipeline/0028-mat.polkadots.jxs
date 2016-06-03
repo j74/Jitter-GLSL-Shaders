@@ -1,0 +1,162 @@
+<jittershader name="polkadots">
+	<param name="lightX" type="float" default="3.9" />
+	<param name="lightY" type="float" default="1.8" />
+	<param name="lightZ" type="float" default="-1.1" />
+	<param name="specular" type="float" default="0.5" />
+	<param name="baseR" type="float" default="0.8" />
+	<param name="baseG" type="float" default="0.8" />
+	<param name="baseB" type="float" default="0.8" />
+	<param name="baseA" type="float" default="1." />
+	<param name="dotR" type="float" default="4.0" />
+	<param name="dotG" type="float" default="0.0" />
+	<param name="dotB" type="float" default="-4.0" />
+	<param name="dotA" type="float" default="1.0" />
+	<param name="dotsize" type="float" default="6.4" />
+	<param name="spaceX" type="float" default="0.3" />
+	<param name="spaceY" type="float" default="0.3" />
+	<param name="spaceZ" type="float" default="0.3" />
+	<language name="glsl" version="1.0">
+		<bind param="lightX" program="vp" />
+		<bind param="lightY" program="vp" />
+		<bind param="lightZ" program="vp" />
+		<bind param="baseR" program="fp" />
+		<bind param="baseG" program="fp" />
+		<bind param="baseB" program="fp" />
+		<bind param="baseA" program="fp" />
+		<bind param="dotR" program="fp" />
+		<bind param="dotG" program="fp" />
+		<bind param="dotB" program="fp" />
+		<bind param="dotA" program="fp" />	
+		<bind param="spaceX" program="fp" />
+		<bind param="spaceY" program="fp" />
+		<bind param="spaceZ" program="fp" />
+		<bind param="specular" program="vp" />		
+		<bind param="dotsize" program="vp" />		
+		<program name="vp" type="vertex">
+<![CDATA[
+/////////////////////////////////////////////////////////////////////
+//
+// This is the Vertex Shader for three dimensional polka dots.
+//
+// author(s):  Joshua Doss
+//
+// Copyright (C) 2002-2005  3Dlabs Inc. Ltd.
+//
+/////////////////////////////////////////////////////////////////////
+
+uniform float lightX;
+uniform float lightY;
+uniform float lightZ;
+uniform float specular;
+vec3 lightpos = vec3(lightX,lightY,lightZ);
+
+varying vec3 pos;
+varying float intensity;
+
+void main(void)
+{
+	float diffuse = 1.0 - specular;
+
+	// compute the vertex position in eye coordinates
+	vec3  eyepos = vec3(gl_ModelViewMatrix * gl_Vertex);
+
+	// compute the transformed normal
+	vec3  tnorm = normalize(gl_NormalMatrix * gl_Normal);
+
+	// compute a vector from the model to the light position
+	vec3  lightdir = normalize(lightpos - eyepos);
+
+	// compute the reflection vector
+	vec3  reflectdir = reflect(-lightdir, tnorm);
+
+	// compute a unit vector in direction of viewing position
+	vec3  viewdir = normalize(-eyepos);
+
+	// calculate amount of kd light based on normal and light angle
+	float kd = max(dot(lightdir, tnorm), 0.0);
+	float ks = 0.0;
+
+	// if there is kd lighting, calculate specular
+	if(kd > 0.0)
+	{
+		ks = max(dot(reflectdir, viewdir), 0.0);
+		ks = pow(ks, 16.0);
+	}
+
+	// add up the light sources, since this is a varying (global) it will pass to frag shader     
+	intensity = diffuse * kd * 1.5 + specular * ks;
+
+	// the varying variable pos will be used by the fragment shader to determine where
+	//    in model space the current pixel is                      
+	pos = vec3 (gl_Vertex);
+
+	// send vertex information
+	gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+/////////////////////////////////////////////////////////////////////
+//
+// Fragment shader for 3 dimensional polka dot shader.
+//
+// Author:  Joshua Doss
+//   
+// Copyright (C) 2002-2005  3Dlabs Inc. Ltd.
+//
+// See 3Dlabs-License.txt for license information
+//
+/////////////////////////////////////////////////////////////////////
+
+varying float intensity;
+varying vec3 pos;
+
+//Create uniform variables so dots can be spaced and scaled by user
+uniform float spaceX;
+uniform float spaceY;
+uniform float spaceZ;
+vec3 spacing = vec3(spaceX,spaceY,spaceZ);
+uniform float dotsize;
+float dotnormsize = (6.4+dotsize)/12.8;
+//Create colors as uniform variables so they can be easily changed
+uniform float baseR;
+uniform float baseG;
+uniform float baseB;
+uniform float baseA;
+uniform float dotR;
+uniform float dotG;
+uniform float dotB;
+uniform float dotA;
+vec4 basecolor = vec4((baseR+6.4)/12.8,(baseG+6.4)/12.8,(baseB+6.4)/12.8,(baseA+6.4)/12.8);
+vec4 dotcolor  = vec4((dotR+6.4)/12.8,(dotG+6.4)/12.8,(dotB+6.4)/12.8,(dotA+6.4)/12.8);
+
+void main(void)
+{
+   float insidesphere, sphereradius, scaledpointlength;
+   vec3 scaledpoint;
+   vec4 finalcolor;
+
+   // Scale the coordinate system
+   // The following line of code is not yet implemented in current drivers:
+   // mcpos = mod(spacing, MCposition);
+   // We will use a workaround found below for now
+   scaledpoint = pos - (spacing * floor(pos/spacing));
+
+   // Bring the scaledpoint vector into the center of the scaled coordinate system
+   scaledpoint = scaledpoint - spacing/2.0;
+
+   // Find the length of the scaledpoint vector and compare it to the dotnormsize
+   scaledpointlength = length(scaledpoint);
+   insidesphere = step(scaledpointlength,dotnormsize);
+   
+   // Determine final output color before lighting
+   finalcolor = vec4(mix(basecolor, dotcolor, insidesphere));
+
+   // Output final color and factor in lighting
+   gl_FragColor = vec4(finalcolor.rgb * intensity, finalcolor.a);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

@@ -1,0 +1,133 @@
+<jittershader name="mat-glass-light-point">
+	<description>
+	Textured glass-like material lit with a point light w/ two specular components calculated per pixel.
+	</description>
+	<param name="shininess" type="float" default="8.0">
+		<description>Specularity Adjustment</description>
+	</param>
+	<param name="lightpos" type="vec3" state="LIGHT0_POSITION">
+		<description>Position of Light Source</description>
+	</param>
+	<param name="specular1" type="vec4" default="0.1 0.05 0.1 1.0">
+		<description>Primary Specular Color</description>
+	</param>
+	<param name="specular2" type="vec4" default="0.1 0.1 0.05 1.0">
+		<description>Secondary Specular Color</description>
+	</param>
+	<param name="basecol" type="vec4" default="0.5 0.5 0.6 0.15">
+		<description>Base Color</description>
+	</param>
+	<param name="v_scale" type="float" default="-5.3" />
+	<param name="v_offset" type="float" default="0.0" />
+	<param name="v_offmd" type="float" default="0.0" />
+	<language name="glsl" version="1.0">
+		<bind param="lightpos" program="vp" />
+		<bind param="specular1" program="fp" />
+		<bind param="specular2" program="fp" />
+		<bind param="basecol" program="fp" />
+		<bind param="ks1" program="fp" />
+		<bind param="ks2" program="fp" />
+		<bind param="shininess" program="fp" />
+		<bind param="v_offmd" program="vp" />
+		<bind param="v_scale" program="vp" />
+		<bind param="v_offset" program="vp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+/*
+ *
+ * Derek Gerstmann - derek@cycling74.com
+ * Copyright 2005 - Cycling '74
+ *
+ * GLSL vertex program for a textured glass-like material lit by a 
+ * point light source.
+ *
+ */
+
+uniform vec3 lightpos;		// position of light source
+
+varying vec3 lightdir;		// direction of light source
+varying vec3 viewdir;		// view direction
+varying vec3 normal;		// surface normal
+
+uniform float v_offset;
+uniform float v_offmd;
+uniform float v_scale;
+float scale_normout = v_scale+6.3;
+
+void main(void)
+{
+    	// Vertex manipulationa and transform
+    	vec3 offset2 = 10.0 * vec3(v_offset, 0., 0.);
+    	if (v_offmd <= -0.1) {
+    	 offset2 = 10.0 * vec3(0., 0., v_offset);
+    	}
+    	if (v_offmd >= 0.1) {
+    	 offset2 = 10.0 * vec3(0., v_offset, 0.);
+    	}
+    	vec3 vertex = (gl_Vertex.xyz + offset2) * scale_normout;
+    	gl_Position = gl_ModelViewProjectionMatrix * vec4(vertex,1.0);
+	
+	// normalize view direction
+	viewdir = -normalize(vec3(gl_ModelViewMatrix * gl_Vertex));
+	
+	// normalize light direction
+	lightdir = normalize(lightpos);
+	
+	// get texture coordinate
+	gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;
+
+	// transform normal into view space
+	normal = normalize(gl_NormalMatrix * gl_Normal);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+/*
+ *
+ * Derek Gerstmann - derek@cycling74.com
+ * Copyright 2005 - Cycling '74
+ *
+ * GLSL fragment program for a textured glass-like material lit by a 
+ * point light source.
+ *
+ */
+
+varying vec3 lightdir;		// light direction
+varying vec3 viewdir;		// view direction
+varying vec3 normal;		// surface normal
+
+uniform vec4 basecol;		// base glass color
+uniform vec4 specular2;		// secondary specular color
+uniform vec4 specular1;		// main specular color
+
+float ks1 = 1.0;		// specular multiplier
+float ks2 = 0.8;		// dim specular multiplier
+
+uniform float shininess;	// specular adjustment
+
+void main (void)
+{
+	vec4 color;
+
+	// compute the reflection vector
+	vec3 reflect = normalize( 2.0 * dot( normal, lightdir) * normal - lightdir );
+
+	// compute specular intensity
+	float specularity = max(dot(viewdir, reflect), 0.0);
+	specularity = specularity * specularity;
+
+	// add in the base and secondary specular color
+	color = basecol + ks2 * specularity * specular2;
+
+	// add in the primary specular color
+	specularity = pow(specularity, shininess) * ks1;
+	color += specularity * specular1;
+
+	// set the outgoing fragment color
+	gl_FragColor = min(color, vec4(1.0));
+}
+]]>
+		</program>
+	</language>	
+</jittershader>

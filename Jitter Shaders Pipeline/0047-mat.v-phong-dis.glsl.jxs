@@ -1,0 +1,102 @@
+<jittershader name="phong-glsl">
+	<description>Shader Phong per-pixel lighting in GLSL</description>
+	<param name="Ia" type="vec4" default="-0.1 -0.1 -0.1 1.0" />
+	<param name="Ii" type="vec4" default="1. 1. 1. 1.0" />
+	<param name="eyePosition" type="vec3" default="0. 0. 4."/>
+	<param name="Ns" type="float" default="10." />
+	<param name="v_scale" type="float" default="-5.3" />
+	<param name="v_offset" type="float" default="0.0" />
+	<param name="v_offmd" type="float" default="0.0" />
+	<param name="Ke" type="vec4" default="0.0 0.0 0.0 0.0" />
+	<param name="Ka" type="vec4" default="1.0 1.0 1.0 1.0" />
+	<param name="Kd" type="vec4" default="0.3 0.3 0.3 1.0" />
+	<param name="Ks" type="vec4" default="1.0 1.0 1.0 1.0" />
+	<language name="glsl" version="1.0">
+		<bind param="Ia" program="fp" />
+		<bind param="Ii" program="fp" />
+		<bind param="eyePosition" program="fp" />
+		<bind param="Ka" program="fp" />
+		<bind param="Kd" program="fp" />
+		<bind param="Ks" program="fp" />
+		<bind param="Ns" program="fp" />
+		<bind param="v_offmd" program="vp" />
+		<bind param="v_scale" program="vp" />
+		<bind param="v_offset" program="vp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+
+varying vec3 N;
+varying vec3 P;
+
+uniform float v_offset;
+uniform float v_offmd;
+uniform float v_scale;
+float scale_normout = v_scale+6.3;
+
+void main(void)
+{
+    	// Vertex manipulationa and transform
+    	vec3 offset2 = 10.0 * vec3(v_offset, 0., 0.);
+    	if (v_offmd <= -0.1) {
+    	 offset2 = 10.0 * vec3(0., 0., v_offset);
+    	}
+    	if (v_offmd >= 0.1) {
+    	 offset2 = 10.0 * vec3(0., v_offset, 0.);
+    	}
+    	vec3 vertex = (gl_Vertex.xyz + offset2) * scale_normout;
+    	gl_Position = gl_ModelViewProjectionMatrix * vec4(vertex,1.0);
+	
+	//get the vertices into eye space
+	P = (gl_ModelViewMatrix*gl_Vertex).xyz;
+
+	//get the normals into eye space
+	N = normalize(gl_Normal);
+	N = mat3(	gl_ModelViewMatrixInverseTranspose[0].xyz, 
+				gl_ModelViewMatrixInverseTranspose[1].xyz,
+				gl_ModelViewMatrixInverseTranspose[2].xyz)*N;
+
+}
+]]>		
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+
+uniform vec4 Ia;
+uniform vec4 Ii;
+uniform vec3 eyePosition;
+uniform vec4 Ke;
+uniform vec4 Ka;
+uniform vec4 Kd;
+uniform vec4 Ks;
+uniform float Ns;
+
+varying vec3 N;
+varying vec3 P;
+
+void main (void)
+{
+	vec3 Nn = normalize(N);
+	
+	//ambient contribution
+	vec4 ambient = Ia*Ka;
+	
+	vec3 lightPosition = vec3(gl_LightSource[0].position);
+	
+	//diffuse contribution
+	vec3 L = normalize(lightPosition - P);
+	vec4 diffuse = Kd*Ii*max(dot(Nn, L), 0.);
+	
+	//calculate specular contribution
+	vec3 V = normalize(eyePosition - P);
+	vec3 H = normalize(L + V); //average of lighting and view vector)  not true reflection vector
+	vec4 specular = Ks*Ii * pow(max(dot(Nn,H), 0.), Ns);
+	
+	vec4 mixed = Ke + ambient + diffuse + specular;
+	float mixed_average = (mixed.x+mixed.y+mixed.z)/3.;
+	if (mixed_average < 0.03) discard;
+	gl_FragColor = mixed;
+}
+]]>		
+		</program>		
+	</language>
+</jittershader>

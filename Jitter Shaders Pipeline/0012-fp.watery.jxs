@@ -1,0 +1,108 @@
+<jittershader name="watery">
+	<param name="time" type="float" default="0.0" />
+	<param name="wtime" type="float" default="0.1" />
+	<param name="wheight" type="float" default="0.5" />
+	<param name="waveX" type="float" default="0.5" />
+	<param name="waveY" type="float" default="-0.5" />
+	<language name="glsl" version="1.2">
+		<bind param="time" program="vp" />
+		<bind param="wtime" program="vp" />
+		<bind param="wheight" program="vp" />
+		<bind param="waveX" program="vp" />
+		<bind param="waveY" program="vp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+// inputs from application
+uniform float time;
+float current = 2.0 * 3.14159265 * time / 6.4;
+uniform float wtime;
+uniform float wheight;
+float whgt = 6.4 + wheight;
+uniform float waveX;
+uniform float waveY;
+
+// outputs from vertex shader
+varying vec3 reflectVec;
+varying vec3 colorCoeff1;
+varying vec3 colorCoeff2;
+
+void calcWave(out float disp,
+              out vec2 normal,
+              float dampening,
+              vec3 viewPosition,
+              float wavetime,
+              float height,
+              float frequency,
+              vec2 waveDirection)
+{
+    float distance1 = dot(viewPosition.xy, waveDirection);
+
+    distance1 = frequency * distance1 + wavetime;
+
+    disp = height * sin(distance1) / dampening;
+    normal = -cos(distance1) * height * frequency * waveDirection / (0.4 * dampening);
+}
+
+void main()
+{
+    vec4 position = vec4(gl_Vertex.x, 0.0, gl_Vertex.y, 1.0);
+    vec3 normal = vec3(0.0, 1.0, 0.0);
+    float dampening = (dot(position.xyz, position.xyz)/1000.0 + 1.0);
+
+    float disp;
+    vec2 norm;
+    
+    for (int i = 0; i < 5; i++)
+    {
+        float wavetime  = current * wtime;
+        float frequency = wtime;
+        float height    = whgt;
+        vec2 waveDir  = vec2(waveX,waveY);
+
+        calcWave(disp, norm, dampening, gl_Vertex.xyz, wavetime, height, frequency, waveDir);
+        position.y = position.y + disp;
+        normal.xz = normal.xz + norm;
+    }
+
+    gl_Position = gl_ModelViewProjectionMatrix * position;
+
+    // transfom normal into eye-space
+    normal = normalize(gl_NormalMatrix * normal);
+
+    // get a vector from the vertex to the eye
+    vec3 eyeToVert = (gl_ModelViewMatrix * position).xyz;
+    eyeToVert = normalize(eyeToVert);
+
+    // calculate the reflected vector for cubemap look-up
+    reflectVec = mat3(gl_TextureMatrix[0]) * reflect(eyeToVert, normal);
+
+    // Calculate a fresnel term (note that f0 = 0)
+    float fres = 1.0 + dot(eyeToVert, normal);
+    fres = pow(fres, 5.0);
+
+    // set the two color coefficients (the magic constants are arbitrary), 
+    // these two color coefficients are used to calculate the contribution from 
+    // each of the two environment cubemaps (one bright, one dark)
+    colorCoeff1 = vec3(fres * 1.4 + min(reflectVec.y, 0.0)) + vec3(0.2, 0.3, 0.3);
+    colorCoeff2 = vec3(fres * 1.26);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec3 reflectVec;
+varying vec3 colorCoeff1;
+varying vec3 colorCoeff2;
+
+void main()
+{
+    vec3 reflectColor = vec3(0.7,0.7,0.7);
+    vec3 reflectColorDark = vec3(0.2,0.2,0.2);
+
+    gl_FragColor.rgb = (reflectColor * colorCoeff1) + (reflectColorDark * colorCoeff2);
+    gl_FragColor.a = 1.0;    
+}
+]]>
+		</program>
+	</language>
+</jittershader>

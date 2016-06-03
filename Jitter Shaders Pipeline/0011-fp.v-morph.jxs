@@ -1,0 +1,131 @@
+<jittershader name="metalpaint">
+	<param name="v_scalein" type="float" default="0.0" />
+	<param name="v_scaleout" type="float" default="0.0" />
+	<param name="lightX" type="float" default="2.9" />
+	<param name="lightY" type="float" default="1.9" />
+	<param name="lightZ" type="float" default="1.9" />
+	<param name="eyeX" type="float" default="0.2" />
+	<param name="eyeY" type="float" default="0.2" />
+	<param name="eyeZ" type="float" default="0.2" />
+	<param name="v_scale" type="float" default="-5.3" />
+	<param name="v_offset" type="float" default="0.0" />
+	<param name="v_offmd" type="float" default="0.0" />
+	<language name="glsl" version="1.2">
+		<bind param="surfcolX" program="vp" />
+		<bind param="surfcolY" program="vp" />
+		<bind param="surfcolZ" program="vp" />
+		<bind param="v_offmd" program="vp" />
+		<bind param="v_scale" program="vp" />
+		<bind param="v_offset" program="vp" />
+		<bind param="eyeX" program="fp" />
+		<bind param="eyeY" program="fp" />
+		<bind param="eyeZ" program="fp" />
+		<bind param="lightX" program="fp" />
+		<bind param="lightY" program="fp" />
+		<bind param="lightZ" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+uniform float surfcolX;
+uniform float surfcolY;
+uniform float surfcolZ;
+vec3 surfcol = vec3(0.5 + surfcolX/3.2, 0.5 + surfcolY/3.2, 0.5 + surfcolZ/3.2);
+
+uniform float lightX;
+uniform float lightY;
+uniform float lightZ;
+vec3 lightVector = vec3(lightX,lightY,lightZ);
+
+uniform float eyeX;
+uniform float eyeY;
+uniform float eyeZ;
+vec3 eyeVector = vec3(eyeX,eyeY,eyeZ);
+
+varying vec3 diffColor;
+varying vec3 specColor;
+varying vec2 viewDepth;
+varying vec2 uv;
+varying vec4 Color;
+
+uniform float v_offset;
+uniform float v_offmd;
+uniform float v_scale;
+float scale_normout = v_scale+6.3;
+
+void main(void)
+{
+    // Vertex manipulationa and transform
+    vec3 offset = 10.0 * vec3(v_offset, 0., 0.);
+    if (v_offmd <= -0.1) {
+     offset = 10.0 * vec3(0., 0., v_offset);
+    }
+    if (v_offmd >= 0.1) {
+     offset = 10.0 * vec3(0., v_offset, 0.);
+    }
+    vec3 vertex = (gl_Vertex.xyz + offset) * scale_normout;
+    gl_Position = gl_ModelViewProjectionMatrix * vec4(vertex,1.0);
+
+    vec3 normal = gl_Normal;
+    normal = normalize(gl_NormalMatrix * normal);
+    vec3 position = vec3(gl_ModelViewMatrix * vec4(vertex,1.0));
+    vec3 lightVec = normalize(lightVector - position);
+    float diffuse = max(dot(lightVec, normal), 0.0);
+
+    if (diffuse < 0.125)
+         diffuse = 0.125;
+    Color = vec4(surfcol * diffuse, 1.0);
+
+    // transform normal from model-space to view-space
+    vec3 normalVec = gl_NormalMatrix * gl_Normal;
+    normalVec = normalize(normalVec);
+
+    // compute the eye->vertex vector
+    vec3 eyeVec = eyeVector;   //infinite viewer (Best looking)
+
+    // compute the view depth for the thin film
+    viewDepth = vec2((1.0 / dot(normalVec, eyeVec)));
+    
+    // store normalized light vector
+    lightVec = normalize(lightVector);
+
+    // calculate half angle vector
+    vec3 halfAngleVec = normalize(lightVec + eyeVec);
+
+    // calculate diffuse component
+    diffuse = max(dot(normalVec, lightVec), 0.0);
+
+    // calculate specular component
+    float specular = max(dot(normalVec, halfAngleVec), 0.0);
+    specular = pow(specular, 32.0);
+
+    // output final lighting results
+    diffColor = vec3(diffuse);
+    specColor = vec3(specular);
+
+    // output texture coordinates for diffuse map
+    uv = gl_MultiTexCoord0.xy;
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec3 diffColor;
+varying vec3 specColor;
+varying vec2 viewDepth;
+varying vec2 uv;
+varying vec4 Color;
+
+void main()
+{
+    // diffuse material color
+    vec3 diffMaterial = Color.xyz;
+
+    // lookup fringe value based on view depth
+    vec3 fringeColor = vec3(0.5,0.5,0.5);
+
+    // modulate specular ligh ting by fringe color, combine with regular lighting
+    gl_FragColor = vec4(diffColor*diffMaterial + fringeColor*specColor, 1.0);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

@@ -1,0 +1,216 @@
+<jittershader name="eye">
+	<param name="lightX" type="float" default="3.0" />
+	<param name="lightY" type="float" default="0.8" />
+	<param name="lightZ" type="float" default="4.0" />
+	<param name="ambcolR" type="float" default="-5.0" />
+	<param name="ambcolG" type="float" default="-5.0" />
+	<param name="ambcolB" type="float" default="-5.0" />
+	<param name="difcolR" type="float" default="-1.3" />
+	<param name="difcolG" type="float" default="-6.3" />
+	<param name="difcolB" type="float" default="-5.9" />
+	<param name="specolR" type="float" default="-5.0" />
+	<param name="specolG" type="float" default="-5.0" />
+	<param name="specolB" type="float" default="-4.5" />
+	<param name="phong" type="float" default="6.4" />
+	<param name="gloss1" type="float" default="5.2" />
+	<param name="gloss2" type="float" default="-5.9" />
+	<param name="drop" type="float" default="-3.6" />
+	<language name="glsl" version="1.2">
+		<bind param="lightX" program="vp" />
+		<bind param="lightY" program="vp" />
+		<bind param="lightZ" program="vp" />
+		<bind param="ambcolR" program="fp" />
+		<bind param="ambcolG" program="fp" />
+		<bind param="ambcolB" program="fp" />
+		<bind param="difcolR" program="fp" />
+		<bind param="difcolG" program="fp" />
+		<bind param="difcolB" program="fp" />
+		<bind param="specolR" program="fp" />
+		<bind param="specolG" program="fp" />
+		<bind param="specolB" program="fp" />
+		<bind param="phong" program="fp" />
+		<bind param="gloss1" program="fp" />
+		<bind param="gloss2" program="fp" />
+		<bind param="drop" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+uniform float lightX;
+uniform float lightY;
+uniform float lightZ;
+vec4 LightVec = vec4(lightX,lightY,lightZ,1.0);
+
+mat4 ModelViewInverse = mat4(1.0);
+
+varying vec3 OPosition;
+varying vec3 VPosition;
+varying vec3 ONormal;
+varying vec4 OLightVec;
+
+void main()
+{
+    gl_Position = ftransform(); // clip space for rasterizer use
+
+    OPosition = gl_Vertex.xyz;  // obj space -- just pass through
+    ONormal = gl_Normal;        // obj space
+    VPosition = (ModelViewInverse * vec4(0, 0, 0, 1)).xyz;  // xfrom from eye coords to obj coords
+    OLightVec = normalize(ModelViewInverse * LightVec);     // eye to obj space
+}
+]]>		
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+//  An example of how to do limited ray tracing directly in the pixel shader.
+
+// FRAGMENT PROGRAM
+
+//
+// funcs //////////////
+//
+
+// Assume ray direction is normalized.
+// Vector "planeEq" is encoded vec3(A,B,C,D) where (Ax+By+Cz+D)=0
+//  and vec3(A,B,C) has been normalized
+//
+float intersect_plane(vec3 rayOrigin, vec3 rayDir, vec4 planeEq)
+{
+    vec3 planeN = planeEq.xyz;
+    float denominator = dot(planeN, rayDir);
+    float result = -1.0;    // if return value negative, ignore any ray (cause it's BEHIND the eye)
+    // d==0 -> parallel || d>0 -> faces away
+    if (denominator < 0.0) 
+    {
+	    float top = dot(planeN, rayOrigin) + planeEq.w;
+	    result = -top/denominator;
+    }
+
+    return result;
+}
+
+//////////////////////////////////
+// Actual Fragment Program Here //
+//////////////////////////////////
+
+// channels in our material map:
+#define SPEC_STR x
+#define METALNESS y
+#define NORM_SPEC_EXPON z
+
+// subfields in "BallData"
+#define RADIUS x
+#define IRIS_DEPTH y
+#define ETA z
+#define LENS_DENSITY w
+
+// subfields in "SpecData"
+#define PHONG x
+#define GLOSS1 y
+#define GLOSS2 z
+#define DROP w
+
+float radius = 6.4;
+float irisDepth = 6.4;
+float eta = 6.4;
+float lensDensity = 6.4;
+uniform float phong;
+uniform float gloss1;
+uniform float gloss2;
+uniform float drop;
+vec4 BallData = vec4(radius, irisDepth, eta, lensDensity);
+vec4 GlossData = vec4(phong, gloss1, gloss2, drop);
+
+uniform float ambcolR;
+uniform float ambcolG;
+uniform float ambcolB;
+vec3 ambcolor = vec3((ambcolR+6.4)/12.8,(ambcolG+6.4)/12.8,(ambcolB+6.4)/12.8);
+uniform float difcolR;
+uniform float difcolG;
+uniform float difcolB;
+vec3 difcolor = vec3((difcolR+6.4)/12.8,(difcolG+6.4)/12.8,(difcolB+6.4)/12.8);
+uniform float specolR;
+uniform float specolG;
+uniform float specolB;
+vec3 specolor = vec3((specolR+6.4)/12.8,(specolG+6.4)/12.8,(specolB+6.4)/12.8);
+vec3 LensColor = vec3(0.5,0.5,0.5);
+// uniform vec3 ambcolor;
+// uniform vec3 difcolor;
+// uniform vec3 specolor;
+// uniform vec3 LensColor;
+uniform sampler2D ColorMap;
+
+varying vec3 OPosition;     // Obj-coords location
+varying vec3 VPosition;     // viewer pos in obj coordinates
+varying vec3 ONormal;       // normal in obj coordinates
+varying vec4 OLightVec;     // light firection in obj coords
+
+void main()
+{
+    vec3 baseTex = vec3(1.0, 1.0, 1.0);   // could be a param
+    float GRADE = 0.05;                 // could be a param
+    vec3 yAxis = vec3(0.0, 1.0, 0.0);
+    vec3 xAxis = vec3(1.0, 0.0, 0.0);
+    vec3 ballCtr = vec3(0.0, 0.0, 0.0);
+
+    // all of these actually evaluate to constants - could be done in VP or on CPU
+    float irisSize = BallData.RADIUS * sqrt(1.0 - BallData.IRIS_DEPTH * BallData.IRIS_DEPTH); // radius of pupil disk
+    float irisScale = 0.3333/max(0.01, irisSize);
+    float irisDist = BallData.RADIUS * BallData.IRIS_DEPTH;
+    vec3 pupilCenter = ballCtr + vec3(irisDist, 0.0, 0.0);
+    float D = -dot(pupilCenter, xAxis);  // if x axis, returns simple -irisDist
+    float slice = OPosition.x - irisDist;
+    vec4 planeEquation = vec4(xAxis, D);
+    
+    // okay, now actual per-pixeldata enters the stage
+    vec3 Vn = normalize(OPosition - VPosition);     // view vector TO surface
+    vec3 Nf = normalize(ONormal);
+    vec3 Ln = OLightVec.xyz;   // already normalized by vertex program
+    vec3 DiffLight = difcolor * max(0.0, dot(Nf, -Ln));
+    vec3 missColor = ambcolor + baseTex * DiffLight;
+    vec3 DiffPupil = ambcolor + max(0.0, dot(xAxis, -Ln)); // full-blast vec3
+
+    vec3 floatAng = normalize(-Ln - Vn);
+    float ndh = abs(dot(Nf, floatAng));
+    float spec1 = pow(ndh, GlossData.PHONG);
+    float s2 = smoothstep(GlossData.GLOSS1, GlossData.GLOSS2, spec1);
+    spec1 = spec1 * ((1.0 - GlossData.DROP) + GlossData.DROP * s2);     // params
+    vec3 SpecularLight = specolor * spec1;
+
+    vec3 hitColor = missColor;
+
+    if (slice >= 0.0) 
+    {
+        float gradedEta = BallData.ETA;
+        gradedEta = 1.0/gradedEta;  // test hack
+        vec3 faceColor;
+        float c1 = dot(-Vn, Nf);
+        float cs2 = 1.0 - gradedEta * gradedEta * (1.0 - c1 * c1);
+
+        if (cs2 >= 0.0) 
+        {
+            vec3 refVector = gradedEta * Vn + ((gradedEta * c1 - sqrt(cs2)) * Nf);
+
+            // now let's intersect with the iris plane
+            float irisT = intersect_plane(OPosition, refVector, planeEquation);
+            float fadeT = irisT * BallData.LENS_DENSITY;
+            fadeT = fadeT * fadeT;
+            faceColor = DiffPupil.xxx;  // temporary (?)
+            
+            if (irisT > 0.0) 
+            {
+                vec3 irisPoint = OPosition + irisT * refVector;
+                vec3 irisST = (irisScale*irisPoint) + vec3(0.0,0.5,0.5);
+                faceColor = texture2D(ColorMap, irisST.yz).rgb;
+            }
+
+            faceColor = mix(faceColor, LensColor, fadeT);
+            hitColor = mix(missColor, faceColor, smoothstep(0.0, GRADE, slice));
+        }
+    }
+
+    hitColor += SpecularLight;
+
+    gl_FragColor = vec4(hitColor, 1.0);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

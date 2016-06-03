@@ -1,0 +1,97 @@
+<jittershader name="OB-bumpmap-ch11">
+	<param name="light_posX" type="float" default="3.0" />
+	<param name="light_posY" type="float" default="4.8" />
+	<param name="light_posZ" type="float" default="4.0" />
+	<param name="surfcolorX" type="float" default="0.0" />
+	<param name="surfcolorY" type="float" default="0.0" />
+	<param name="surfcolorZ" type="float" default="0.0" />
+	<param name="density" type="float" default="0.9" />
+	<param name="size" type="float" default="0.0" />
+	<param name="factor" type="float" default="-0.6" />
+	<language name="glsl" version="1.2">
+		<bind param="light_posX" program="vp" />
+		<bind param="light_posY" program="vp" />
+		<bind param="light_posZ" program="vp" />
+		<bind param="surfcolorX" program="fp" />
+		<bind param="surfcolorY" program="fp" />
+		<bind param="surfcolorZ" program="fp" />
+		<bind param="density" program="fp" />
+		<bind param="size" program="fp" />
+		<bind param="factor" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+uniform float light_posX;
+uniform float light_posY;
+uniform float light_posZ;
+vec3 light_pos = vec3(0.5 + light_posX/3.2, 0.5 + light_posY/3.2, 0.5 + light_posZ/3.2);
+varying vec3 LightDir;
+varying vec3 EyeDir;
+attribute vec3 Tangent;
+
+void main() 
+{
+    EyeDir         = vec3(gl_ModelViewMatrix * gl_Vertex);
+    gl_Position    = ftransform();
+    gl_TexCoord[0] = gl_MultiTexCoord0;
+
+    vec3 n = normalize(gl_NormalMatrix * gl_Normal);
+    vec3 t = normalize(gl_NormalMatrix * Tangent);
+    vec3 b = cross(n, t);
+
+    vec3 v;
+    v.x = dot(light_pos, t);
+    v.y = dot(light_pos, b);
+    v.z = dot(light_pos, n);
+    LightDir = normalize(v);
+
+    v.x = dot(EyeDir, t);
+    v.y = dot(EyeDir, b);
+    v.z = dot(EyeDir, n);
+    EyeDir = normalize(v);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+uniform float surfcolorX;
+uniform float surfcolorY;
+uniform float surfcolorZ;
+vec3 surfcolor = vec3(0.5 + surfcolorX/3.2, 0.5 + surfcolorY/3.2, 0.5 + surfcolorZ/3.2);
+// = (0.7, 0.6, 0.2)
+
+
+uniform float density;
+float densfact = density * 4.0;   // = 16.0
+uniform float size;    		  // = 0.15
+float size_norm = 0.5 + size/3.2; // = 0.15
+uniform float factor;  		  // = 0.5
+varying vec3 LightDir;
+varying vec3 EyeDir;
+
+void main()
+{
+    vec3 litColor;
+    vec2 c = densfact * gl_TexCoord[0].st;
+    vec2 p = fract(c) - vec2(0.5);
+
+    float d, f;
+    d = p.x * p.x + p.y * p.y;
+    f = 1.0 / sqrt(d + 1.0);
+
+    if (d >= size_norm)
+        { p = vec2(0.0); f = 1.0; }
+
+    vec3 normDelta = vec3(p.x, p.y, 1.0) * f;
+    litColor = surfcolor * max(dot(normDelta, LightDir), 0.0);
+    vec3 reflectDir = reflect(LightDir, normDelta);
+    
+    float spec = max(dot(EyeDir, reflectDir), 0.0);
+    spec *= factor;
+    litColor = min(litColor + spec, vec3(1.0));
+
+    gl_FragColor = vec4(litColor, 1.0);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

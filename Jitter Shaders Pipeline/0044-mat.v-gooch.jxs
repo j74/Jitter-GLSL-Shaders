@@ -1,0 +1,146 @@
+<jittershader name="sh-mat-gooch-simple">
+	<description>
+	Untextured material lit with a point light w/gooch shading calculated per pixel.
+	</description>
+	<param name="lightpos" type="vec3" state="LIGHT0_POSITION">
+		<description>Position of Light Source</description>
+	</param>
+	<param name="warmcol" type="vec4" default="0.6 0.7 0.0 1.0">
+		<description>Warm Color</description>
+	</param>
+	<param name="coolcol" type="vec4" default="0.0 0.0 0.6 1.0">
+		<description>Cool Color</description>
+	</param>
+	<param name="warm" type="float" default="0.45">
+		<description>Warm Threshold</description>
+	</param>
+	<param name="cool" type="float" default="0.45">
+		<description>Cool Threshold</description>
+	</param>
+	<param name="shinine" type="float" default="32.0">
+		<description>Shinine</description>
+	</param>
+	<param name="v_scale" type="float" default="-5.3" />
+	<param name="v_offset" type="float" default="0.0" />
+	<param name="v_offmd" type="float" default="0.0" />
+	<param name="basecol" type="vec4" default="0.75 0.75 0.75 1.0">
+		<description>Cool Color</description>
+	</param>
+	<language name="glsl" version="1.0">
+		<bind param="lightpos" program="vp" />
+		<bind param="warmcol" program="fp" />
+		<bind param="coolcol" program="fp" />
+		<bind param="basecol" program="fp" />
+		<bind param="warm" program="fp" />
+		<bind param="cool" program="fp" />
+		<bind param="shinine" program="fp" />
+		<bind param="v_offmd" program="vp" />
+		<bind param="v_scale" program="vp" />
+		<bind param="v_offset" program="vp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+/*
+ *
+ * Derek Gerstmann - derek@cycling74.com
+ * Copyright 2005 - Cycling '74
+ *
+ * GLSL vertex program for a simple gooch material lit by a 
+ * point light source calculated per pixel/fragment.  The lack
+ * of a silhouette makes this implemetation simple.
+ *
+ */
+
+uniform vec3 lightpos;
+
+varying float ndotl;
+varying vec3 normal;
+varying vec3 lightdir;
+varying vec3 reflect;
+varying vec3 viewdir;
+
+uniform float v_offset;
+uniform float v_offmd;
+uniform float v_scale;
+float scale_normout = v_scale+6.3;
+
+void main(void)
+{
+    	// Vertex manipulationa and transform
+    	vec3 offset2 = 10.0 * vec3(v_offset, 0., 0.);
+    	if (v_offmd <= -0.1) {
+    	 offset2 = 10.0 * vec3(0., 0., v_offset);
+    	}
+    	if (v_offmd >= 0.1) {
+    	 offset2 = 10.0 * vec3(0., v_offset, 0.);
+    	}
+    	vec3 vertex = (gl_Vertex.xyz + offset2) * scale_normout;
+    	gl_Position = gl_ModelViewProjectionMatrix * vec4(vertex,1.0);
+	
+	// get camera position based on mv matrix
+	vec4 campos = gl_ModelViewMatrix * gl_Vertex;
+
+	// transform normal into view space
+	normal = normalize(gl_NormalMatrix * gl_Normal);
+
+	// compute view vector in view space
+	viewdir = vec3(normalize(-campos.xyz));  
+
+	// get light direction in view space
+	lightdir = normalize(lightpos - normal);
+	
+	// get reflect vector
+	reflect = normalize( 2.0 * dot( normal, lightdir) * normal - lightdir );    
+
+	// compute dot product of normal with light dir
+	ndotl = 0.5 * (dot(lightdir, normal) + 1.0);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+/*
+ *
+ * Derek Gerstmann - derek@cycling74.com
+ * Copyright 2005 - Cycling '74
+ *
+ * GLSL fragment program for a simple gooch material lit by a 
+ * point light source calculated per pixel/fragment.  The lack
+ * of a silhouette makes this implementation simple.
+ *
+ */
+
+uniform float warm;
+uniform float cool;
+uniform float shinine;
+
+uniform vec4 warmcol;
+uniform vec4 coolcol;
+uniform vec4 basecol;
+
+varying float ndotl;
+varying vec3 reflect;
+varying vec3 viewdir;
+
+void main()
+{
+	vec4 coolterm = min(coolcol + cool * basecol, 1.0);
+	vec4 warmterm = min(warmcol + warm * basecol, 1.0); 
+
+	// blend between cool and warm contributions
+	vec4 finalcolor = mix(coolterm, warmterm, ndotl);
+
+	// calculate lighting
+	vec3 ref = normalize(reflect);
+	vec3 view = normalize(viewdir);
+
+	// calculate specular intensity
+	float specularity = max(dot(ref, view), 0.0);
+	specularity = pow(specularity, shinine);
+
+	// calculate final color by adding specular term to final color
+	gl_FragColor = min(finalcolor + specularity, 1.0);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

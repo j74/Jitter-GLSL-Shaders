@@ -1,0 +1,58 @@
+<jittershader name="z-depth">
+	<param name="offset" type="float" default="-6.3" />
+	<param name="far_clip" type="float" default="6.4" />
+	<param name="far_gain1" type="float" default="-5.8" />
+	<param name="far_gain2" type="float" default="-6.2" />
+	<param name="far_gain3" type="float" default="-6.2" />
+	<param name="near_clip" type="float" default="0.0" />
+	<param name="mode" type="int" default="0" />
+	<language name="glsl" version="1.0">	
+		<bind param="offset" program="fp" />
+		<bind param="far_clip" program="vp" />
+		<bind param="far_gain1" program="vp" />
+		<bind param="far_gain2" program="vp" />
+		<bind param="far_gain3" program="vp" />
+		<bind param="near_clip" program="vp" />
+		<bind param="mode" program="vp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+uniform float far_clip;
+uniform float far_gain1;
+uniform float far_gain2;
+uniform float far_gain3;
+uniform float near_clip;
+uniform int mode;
+float far_gain1_n = 5.*(far_gain1+6.4); 
+float far_gain2_n = 5.*(far_gain2+6.4); 
+float far_gain3_n = 5.*(far_gain3+6.4); 
+float far_clip_n = (far_clip+6.4)*far_gain1_n*far_gain2_n*far_gain3_n;
+float near_clip_n = 5.*near_clip;
+varying float depth;
+
+void main (void)
+{
+	vec4 viewPos = gl_ModelViewMatrix * gl_Vertex;
+	
+	depth = (abs(viewPos.z-near_clip_n)/abs(far_clip_n-near_clip_n));
+	if (depth > 1.) depth = 1.0;
+	if (mode > 0) depth = depth*depth;
+	gl_Position = ftransform();
+}
+]]>		
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying float depth;
+uniform float offset;
+float offset_n = (offset+6.3)/12.7;
+vec4 offset_v = vec4(offset_n,offset_n,offset_n,1.0);
+void main (void)
+{
+	float final_depth = abs(depth - offset_v);
+	gl_FragColor = vec4(final_depth, final_depth, final_depth, 1.0);
+
+}
+]]>		
+		</program>
+	</language>
+</jittershader>

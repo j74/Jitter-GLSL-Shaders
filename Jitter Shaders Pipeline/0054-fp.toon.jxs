@@ -1,0 +1,132 @@
+<jittershader name="toon">
+	<param name="baseR" type="float" default="0.5" />
+	<param name="baseG" type="float" default="0.5" />
+	<param name="baseB" type="float" default="0.5" />
+	<param name="radius" type="float" default="-6.3" />
+        <param name="dotsR" type="float" default="0.3" />
+        <param name="dotsG" type="float" default="0.3" />
+        <param name="dotsB" type="float" default="0.3" />
+	<param name="specular" type="float" default="-5.5" />
+	<param name="ambient" type="float" default="0.1" />
+	<param name="intenseR" type="float" default="0.8" />
+	<param name="intenseG" type="float" default="0.8" />
+	<param name="intenseB" type="float" default="0.8" />
+	<param name="distance" type="float" default="6.3" />
+	<param name="fogluma" type="float" default="-6.3" />
+	<param name="lightZ" type="float" default="0.0" />
+	<param name="lightY" type="float" default="0.0" />
+	<param name="lightX" type="float" default="0.0" />
+	<language name="glsl" version="1.2">
+		<bind param="baseR" program="fp" />
+		<bind param="baseG" program="fp" />
+		<bind param="baseB" program="fp" />
+		<bind param="dotsR" program="fp" />	
+		<bind param="dotsG" program="fp" />	
+		<bind param="dotsB" program="fp" />	
+		<bind param="specular" program="fp" />	
+		<bind param="ambient" program="fp" />
+		<bind param="radius" program="fp" />	
+		<bind param="distance" program="vp" />		
+		<bind param="intenseR" program="fp" />	
+		<bind param="intenseG" program="fp" />	
+		<bind param="intenseB" program="fp" />	
+		<bind param="fogluma" program="fp" />	
+		<bind param="lightX" program="vp" />
+		<bind param="lightY" program="vp" />
+		<bind param="lightZ" program="vp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+uniform float lightX;
+uniform float lightY;
+uniform float lightZ;
+vec3 lightPosV = vec3(2.*lightX,2.*lightY,2.*lightZ);
+uniform float distance;
+float dist_norm = (distance+6.32)*100.;
+varying vec3 normalV;
+varying vec3 lightDirV;
+varying vec3 eyeDirV;
+varying float depth;
+varying vec2 texCoord;
+
+void main(void)
+{
+	vec3 vertexV = (gl_ModelViewMatrix * gl_Vertex).xyz;
+	eyeDirV = -vertexV;
+	depth = dist_norm*abs(vertexV.z-dist_norm)/(vertexV.z*vertexV.z);
+	if (depth>1.0)
+         depth = 1.0;
+	lightDirV = lightPosV - vertexV;
+	normalV = normalize(gl_NormalMatrix * gl_Normal);
+	texCoord = gl_MultiTexCoord0;
+	gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+}
+]]>		
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+uniform float baseR;
+uniform float baseG;
+uniform float baseB;
+vec3 baseColor = vec3(baseR,baseG,baseB);
+uniform float intenseR;
+uniform float intenseG;
+uniform float intenseB;
+vec3 lightIntensity = vec3(intenseR,intenseG,intenseB);
+uniform float dotsR;
+uniform float dotsG;
+uniform float dotsB;
+vec3 kDots = vec3(dotsR,dotsG,dotsB);
+uniform float specular;
+float specularFactor = (specular-6.4)/-12.7;
+uniform float radius;
+float dotRadius = (radius+4.3)/3.0;
+uniform float ambient;
+float ambientFactor = (ambient)/3.2;
+uniform float distance;
+varying vec3 normalV;
+varying vec3 lightDirV;
+varying vec3 eyeDirV;
+varying float depth;
+varying vec2 texCoord;
+uniform float fogluma;
+float fogluma_norm = (fogluma+6.3)/12.7;
+void main (void)
+{
+	vec3 N = normalize(normalV);
+	vec3 L = normalize(lightDirV);
+	vec3 E = normalize(eyeDirV);
+	vec3 color;	
+	/* diffuse intensity */
+	float intensity = dot(L, N);
+	if (intensity < 0.1){
+		intensity = 0.05;
+	} else if (intensity < 0.25){
+		intensity = 0.25;
+	} else if (intensity < 0.5){
+		intensity = 0.5;
+	} else {
+		intensity = 1.0;
+	} 
+	
+	if (intensity > 0.0) {	
+		if (length(vec2(dotRadius,dotRadius)-fract(texCoord / (0.2*dotRadius))) < dotRadius)
+		{
+			color =  kDots * lightIntensity * ambientFactor;
+			color += kDots * lightIntensity * intensity;
+		} else {
+			color =  baseColor * lightIntensity * ambientFactor;
+			color += baseColor * lightIntensity * intensity;
+		}
+		/* specular highlight */
+		vec3 R = reflect(-L, N);
+		float specheck = dot(R, E);
+		if (specheck > specularFactor ) color = color + specheck*specheck*vec3(0.5,0.5,0.5);	
+	}
+	gl_FragColor = (1.-depth)*fogluma_norm + depth*vec4(color,1.0);	
+}
+]]>		
+		</program>		
+	</language>
+</jittershader>
+
+

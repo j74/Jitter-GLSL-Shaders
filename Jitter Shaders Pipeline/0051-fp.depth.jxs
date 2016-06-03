@@ -1,0 +1,50 @@
+<jittershader name="test">
+	<param name="gain1" type="float" default="-6.2" />
+	<param name="gain2" type="float" default="-6.2" />
+	<param name="gain3" type="float" default="6.4" />
+	<param name="gain4" type="float" default="-6.2" />
+	<param name="ref_X" type="float" default="0." />
+	<param name="ref_Y" type="float" default="0." />
+	<param name="ref_Z" type="float" default="0." />
+	<language name="glsl" version="1.2">
+		<bind param="gain1" program="vp" />
+		<bind param="gain2" program="vp" />
+		<bind param="gain3" program="vp" />
+		<bind param="gain4" program="vp" />
+		<bind param="ref_X" program="vp" />
+		<bind param="ref_Y" program="vp" />
+		<bind param="ref_Z" program="vp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying float vertDist;
+uniform float ref_X;
+uniform float ref_Y;
+uniform float ref_Z;
+uniform float gain1;
+uniform float gain2;
+uniform float gain3;
+uniform float gain4;
+float gain1_norm = 5.*(gain1 + 6.4); 
+float gain2_norm = 5.*(gain2 + 6.4); 
+float gain3_norm = (gain3 + 6.4)/12.8; 
+float gain4_norm = 5.*(gain4 + 6.4); 
+void main(void)
+{
+        // perform standard transform on vertex
+      	gl_Position = ftransform();
+    	vec4 pos = gl_ModelViewProjectionMatrix * vec4(gl_Vertex.x+gain4_norm*ref_X,gl_Vertex.y+gain4_norm*ref_Y,gl_Vertex.z+gain4_norm*ref_Z,1.0);
+	vertDist = gain1_norm * gain2_norm * gain3_norm *length(pos);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying float vertDist;
+void main(void)
+{
+   gl_FragColor = 0.001*vec4(vertDist,vertDist,vertDist,vertDist);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

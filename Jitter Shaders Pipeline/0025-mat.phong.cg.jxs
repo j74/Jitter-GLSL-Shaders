@@ -1,0 +1,95 @@
+<jittershader name="phong">
+	<description>Phong Lighting Model Shader</description>
+	<param name="modelViewProj" type="float4x4" state="MODELVIEW_PROJECTION_MATRIX" transform="IDENTITY"/> 
+	<param name="modelView" type="float4x4" state="MODELVIEW_MATRIX" transform="IDENTITY"/> 
+	<param name="modelViewIT" type="float4x4" state="MODELVIEW_MATRIX" transform="INVERSE_TRANSPOSE"/> 
+	<param name="la" type="float4" default="0.0 0.0 0.0 1.0" />
+	<param name="li" type="float4" default="1. 1. 1. 1." />
+	<param name="eyePosition" type="float3" default="0. 0. 4." />
+	<param name="Ke" type="float4" default="0. 0. 0. 0." />
+	<param name="Ka" type="float4" default="1.0 1.0 1.0 1.0" />
+	<param name="Kd" type="float4" default="0.3 0.3 0.3 1.0" />
+	<param name="Ks" type="float4" default="1.0 1.0 1.0 1.0" />
+	<param name="shininess" type="float" default="10." />
+	<language name="cg" version="1.0">
+		<bind param="modelViewProj" program="vp" />
+		<bind param="modelView" program="vp" />
+		<bind param="modelViewIT" program="vp" />
+		<bind param="la" program="fp" />
+		<bind param="li" program="fp" />
+		<bind param="eyePosition" program="fp" />
+		<bind param="Ke" program="fp" />
+		<bind param="Ka" program="fp" />
+		<bind param="Kd" program="fp" />
+		<bind param="Ks" program="fp" />
+		<bind param="shininess" program="fp" />
+		<program name="vp" type="vertex" entry="phong_vert">
+<![CDATA[
+
+void phong_vert(in	float4 position 	: POSITION,
+				in	float4 normal 		: NORMAL,
+				in	float4 iTexCoord0	: TEXCOORD0,
+			
+				out	float4 oPosition	: POSITION,
+				out	float3 objectPos	: TEXCOORD0,
+				out	float3 oNormal		: TEXCOORD1,
+				out	float4 oTexCoord0	: TEXCOORD2,
+		
+			uniform	float4x4 modelViewProj,
+			uniform	float4x4 modelView,
+			uniform	float4x4 modelViewIT)
+{
+	oPosition = mul(modelViewProj, position);
+	objectPos = mul(modelView, position).xyz;
+	oNormal = mul(modelViewIT, normal).xyz;
+	oNormal = normalize(oNormal);
+	oTexCoord0 = iTexCoord0;
+}
+]]>		
+		</program>
+		<program name="fp" type="fragment" entry="phong_frag">
+<![CDATA[
+
+void phong_frag(in	float3 position		: TEXCOORD0,
+				in	float3 normal		: TEXCOORD1,
+				in	float3 iTexCoord0	: TEXCOORD2,
+				
+				out float4 color		: COLOR,
+			
+			uniform float4 	la,
+			uniform float4 	li,
+			uniform float4 	lightPosition : state.light[0].position,
+			uniform float3 	eyePosition,
+			uniform float4 	Ke,
+			uniform float4 	Ka,
+			uniform float4 	Kd,
+			uniform float4 	Ks,
+			uniform float	shininess)
+{
+	float3 P = position.xyz;
+	float3 N = normalize(normal);
+	
+	//emissive term
+	float4 emissive = Ke;
+	
+	//ambient term
+	float4 ambient = Ka * la;
+	
+	//diffuse term
+	float3 L = normalize(lightPosition.xyz - P);
+	float diffuseLight = max(dot(N, L), 0.);
+	float4 diffuse = Kd * li * diffuseLight;
+	
+	//specular term
+	float3 V = normalize(eyePosition - P);
+	float3 H = normalize(L + V);
+	float specularLight = pow(max(dot(N, H), 0.), shininess);
+	
+	float4 specular = Ks * li * specularLight;
+	
+	color = emissive + ambient + diffuse + specular;
+}
+]]>		
+		</program>		
+	</language>
+</jittershader>

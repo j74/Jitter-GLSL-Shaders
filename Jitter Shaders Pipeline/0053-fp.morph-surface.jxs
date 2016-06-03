@@ -1,0 +1,264 @@
+<jittershader name="morph-surface">
+	<param name="Select" type="int" default="4" />
+	<param name="morph" type="float" default="0.0" />
+	<param name="threshold" type="float" default="6.4" />
+	<param name="TT_0" type="vec4" default="0.5 0.5 0.5 0.5" />
+	<param name="TT_1" type="vec4" default="0.2 0.2 0.2 0.2" />
+	<param name="a" type="float" default="0.0" />
+	<param name="lightcolX" type="float" default="6.4" />
+	<param name="lightcolY" type="float" default="6.4" />
+	<param name="lightcolZ" type="float" default="6.4" />
+	<param name="surfcolX" type="float" default="-6.4" />
+	<param name="surfcolY" type="float" default="-6.4" />
+	<param name="surfcolZ" type="float" default="-6.4" />
+	<param name="light_X" type="float" default="-4.0" />
+	<param name="light_Y" type="float" default="1.3" />
+	<param name="light_Z" type="float" default="0.5" />
+	<param name="eyeX" type="float" default="0."/>
+	<param name="eyeY" type="float" default="0."/>
+	<param name="eyeZ" type="float" default="4."/>
+	<param name="b" type="float" default="0.0" />
+	<param name="c" type="float" default="0.0" />
+	<param name="Kd" type="float" default="-2.1" />
+	<language name="glsl" version="1.0">
+		<bind param="Select" program="vp" />
+		<bind param="morph" program="vp" />
+		<bind param="a" program="vp" />
+		<bind param="b" program="vp" />
+		<bind param="c" program="vp" />
+		<bind param="TT_0" program="vp" />
+		<bind param="TT_1" program="vp" />
+		<bind param="light_X" program="vp" />
+		<bind param="light_Y" program="vp" />
+		<bind param="light_Z" program="vp" />
+		<bind param="lightcolX" program="vp" />
+		<bind param="lightcolY" program="vp" />
+		<bind param="lightcolZ" program="vp" />
+		<bind param="Kd" program="vp" />
+		<bind param="threshold" program="fp" />
+		<bind param="surfcolX" program="fp" />	
+		<bind param="surfcolY" program="fp" />	
+		<bind param="surfcolZ" program="fp" />	
+		<program name="vp" type="vertex">
+<![CDATA[
+#define TWOPI 6.28318531
+#define PI 3.14159265
+
+// Pre-transform matrix
+uniform vec4 TT_0;
+uniform vec4 TT_1;
+vec4 TT_2 = vec4(0.,0.,0.,0.);
+vec4 TT_3 = vec4(0.,0.,0.,0.);
+
+// Select algorithm
+uniform int Select;
+
+// Tweakables
+uniform float morph;
+uniform float a;
+uniform float b;
+uniform float c;
+float d = 0.0;
+
+uniform float light_X;
+uniform float light_Y;
+uniform float light_Z;
+uniform float lightcolX;
+uniform float lightcolY;
+uniform float lightcolZ;
+uniform float Kd;
+vec3 light_pos = 10.0 * vec3(light_X, light_Y, light_Z);
+vec3 lightcol = vec3(0.5 + lightcolX/3.2, 0.5 + lightcolY/3.2, 0.5 + lightcolZ/3.2);
+vec3 eye_pos = vec3(0.0, 0.0, 0.0);
+vec3 specular = vec3(0.5, 0.5, 0.5);
+vec3 ambient = vec3(0.2, 0.2, 0.2);
+
+// Passes shading to Fragment Shader
+varying vec3 diffusecolor;
+varying vec3 specularcolor;
+
+//// VERTEX FUNCTIONS ////
+vec3 SteinbachScrew(vec3 vertex)
+{
+	// Tweakable parameter a
+	float u = vertex.x * 8.0;
+	float v = vertex.y * 12.5;
+	vertex.x = a * (u) * cos(v);
+	vertex.y = a * (u) * sin(v);
+	vertex.z = a * (v) * cos(u);
+	return vertex;
+}
+
+vec3 Sine(vec3 vertex)
+{
+	// Tweakable parameter a
+	float u = vertex.x * TWOPI;
+	float v = vertex.y * TWOPI;
+	vertex.x = a * sin(u);
+	vertex.y = a * sin(v);
+	vertex.z = a * sin(u+v);
+	return vertex;
+}
+
+vec3 Eight(vec3 vertex)
+{
+	float u = vertex.x * 2.0*TWOPI;
+	float v = vertex.y * 2.0*PI/2.0;
+	vertex.x = cos(u) * sin(2.0*v);
+	vertex.y = sin(u) * sin(2.0*v);
+	vertex.z = sin(v);
+	return vertex;
+}
+
+vec3 Corkscrew(vec3 vertex)
+{
+	// Tweakable parameters a, b
+	float u = vertex.x * TWOPI;
+	float v = vertex.y * 2.0*TWOPI;
+	vertex.x = a * cos(u) * cos(v);
+	vertex.y = a * sin(u) * cos(v);
+	vertex.z = a * sin(v) + b * u;
+	return vertex;
+}
+
+vec3 Roman2Boy(vec3 vertex)
+{
+	// Tweakable parameter a
+	float u = vertex.x * PI;
+	float v = vertex.y * PI;
+	vertex.x = (pow(2.0,0.5) * cos(2.0*u) * pow(cos(v),2.0) + cos(u) * sin(2.0*v)) / (2.0 - a*pow(2.0,0.5) * sin(3.0*u) * sin(2.0*v));
+	vertex.y = (pow(2.0,0.5) * sin(2.0*u) * pow(cos(v),2.0) + sin(u) * sin(2.0*v)) / (2.0 - a*pow(2.0,0.5) * sin(3.0*u) * sin(2.0*v));
+	vertex.z = (3.0*pow(cos(v),2.0)) / (2.0 - a*pow(2.0,0.5) * sin(3.0*u) * sin(2.0*v));
+	return vertex;
+}
+
+vec3 TwistedPipe(vec3 vertex)
+{
+	float u = vertex.x * TWOPI;
+	float v = vertex.y * TWOPI;
+	vertex.x = cos(v) * (2.0 + cos(u)) / sqrt(1.0 + pow(sin(v),2.0));
+	vertex.y = sin(v + TWOPI/3.0) * (2.0 + cos(u + TWOPI/3.0)) / sqrt(1.0 + pow(sin(v),2.0));
+	vertex.z = sin(v - TWOPI/3.0) * (2.0 + cos(u - TWOPI/3.0)) / sqrt(1.0 + pow(sin(v),2.0));
+	return vertex;
+}
+
+vec3 BohemianDome(vec3 vertex)
+{
+	// Tweakable parameters a, b and c
+	float u = vertex.x * TWOPI;
+	float v = vertex.y * TWOPI;
+	vertex.x = a * cos(u);
+	vertex.y = a * sin(u) + b * cos(v);
+	vertex.z = c * sin(v);
+	return vertex;
+}
+
+/* NEEDS GLSL tanh (hyperbolic tangent) /cosh (hyperbolic cosine) code
+vec3 Folium(vec3 vertex)
+{
+	float u = vertex.x * TWOPI;
+	float v = vertex.y * TWOPI;
+	vertex.x = cos(u) * (2.0 * v/ PI - tanh(v));
+	vertex.y = cos(u + TWOPI / 3.0) / cosh(v);
+	vertex.z = cos(u - TWOPI / 3.0) / cosh(v);
+	return vertex;
+}*/
+
+vec3 AstroidalEllipsoid(vec3 vertex)
+{
+	float u = vertex.x * PI;
+	float v = vertex.y * TWOPI;
+	vertex.x = pow(cos(u)*cos(v),3.0);
+	vertex.y = pow(sin(u)*cos(v),3.0);
+	vertex.z = pow(sin(v),3.0);
+	return vertex;
+}
+
+vec3 TriaxialHexatorus(vec3 vertex)
+{
+	float u = vertex.x * 2.0*PI;
+	float v = vertex.y * 2.0*TWOPI;
+	vertex.x = sin(u) / (sqrt(2.0) + cos(v));
+	vertex.y = sin(u + TWOPI/3.0) / (sqrt(2.0) + cos(v + TWOPI/3.0));
+	vertex.z = cos(u - TWOPI/3.0) / (sqrt(2.0) + cos(v - TWOPI/3.0));
+	return vertex;
+}
+
+//// MAIN LOOP ////
+
+void main()
+{
+	// Assemble pre-transform matrix
+	mat4 TT = mat4(TT_0,TT_1,TT_2,TT_3);
+	// XYZ vertex coordinates (multiplied by pre-transform matrix)
+	vec3 vertex = (gl_Vertex * TT).xyz;
+
+	// Select algorithm
+	if(Select == 0)
+		vertex = SteinbachScrew(vertex);
+	if(Select == 1)
+		vertex = Sine(vertex);
+	if(Select == 2)
+		vertex = Eight(vertex);
+	if(Select == 3)
+		vertex = Corkscrew(vertex);
+	if(Select == 4)
+		vertex = Roman2Boy(vertex);
+	if(Select == 5)
+		vertex = TwistedPipe(vertex);
+	if(Select == 6)
+		vertex = BohemianDome(vertex);
+	if(Select == 7)
+		vertex = AstroidalEllipsoid(vertex);
+	if(Select == 8)
+		vertex = TriaxialHexatorus(vertex);
+
+	// Outputs
+    	vec4 vertex2 = vec4(gl_Vertex.xyz,1.0);
+	vec4 vertex3 = morph*vec4(vertex,1.0)+(1.-morph)*vertex2;
+
+    	vec3 ecPosition = vec3(gl_ModelViewMatrix * vertex3);
+    	vec3 tnorm      = normalize(gl_NormalMatrix * gl_Normal);
+    	vec3 lightVec   = normalize(light_pos - ecPosition);
+    	vec3 viewVec    = normalize(eye_pos - ecPosition);
+    	vec3 Hvec       = normalize(viewVec + lightVec);
+    	float spec = abs(dot(Hvec, tnorm));
+    	spec = pow(spec, 16.0);
+    	diffusecolor    = lightcol * vec3 (Kd * abs(dot(lightVec, tnorm)));
+    	diffusecolor    = clamp(ambient + diffusecolor, 0.0, 1.0);
+    	specularcolor   = clamp((lightcol * specular * spec), 0.0, 1.0);
+    	gl_TexCoord[0]  = gl_MultiTexCoord0;
+
+	//vertices into eye space
+	gl_Position = gl_ModelViewProjectionMatrix*vertex3;
+}
+]]>		
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec3  diffusecolor;
+varying vec3  specularcolor;
+uniform float threshold;
+uniform float surfcolX;
+uniform float surfcolY;
+uniform float surfcolZ;
+vec2 thresh = vec2(0.5 + threshold/3.2, 0.5 + threshold/3.2);
+vec3 surfcol = vec3(0.5 + surfcolX/3.2, 0.5 + surfcolY/3.2, 0.5 + surfcolZ/3.2);
+const float scale1 = 1.0;
+const float scale2 = 1.0;
+vec2 scale = vec2(scale1, scale2);
+
+void main()
+{
+    float ss = fract(gl_TexCoord[0].s * scale.s);
+    float tt = fract(gl_TexCoord[0].t * scale.t);
+    if ((ss > thresh.s) && (tt > thresh.t)) discard;
+    vec3 finalColor = surfcol * diffusecolor + specularcolor;
+    gl_FragColor = vec4(finalColor, 1.0);
+}
+]]>		
+		</program>		
+	</language>
+</jittershader>
+
+

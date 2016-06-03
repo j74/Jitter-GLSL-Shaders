@@ -1,0 +1,73 @@
+<jittershader name="OB-vert-noise-ch16">
+	<param name="light_posX" type="float" default="3.0" />
+	<param name="light_posY" type="float" default="4.8" />
+	<param name="light_posZ" type="float" default="4.0" />
+	<param name="surfcolX" type="float" default="0.0" />
+	<param name="surfcolY" type="float" default="0.0" />
+	<param name="surfcolZ" type="float" default="0.0" />
+	<param name="v_scale" type="float" default="-5.3" />
+	<param name="v_offset" type="float" default="0.0" />
+	<param name="v_offmd" type="float" default="0.0" />
+	<language name="glsl" version="1.2">
+		<bind param="light_posX" program="vp" />
+		<bind param="light_posY" program="vp" />
+		<bind param="light_posZ" program="vp" />
+		<bind param="surfcolX" program="vp" />
+		<bind param="surfcolY" program="vp" />
+		<bind param="surfcolZ" program="vp" />
+		<bind param="v_offmd" program="vp" />
+		<bind param="v_scale" program="vp" />
+		<bind param="v_offset" program="vp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+uniform float light_posX;
+uniform float light_posY;
+uniform float light_posZ;
+vec3 light_pos = 10.0 * vec3(light_posX, light_posY, light_posZ);
+
+uniform float surfcolX;
+uniform float surfcolY;
+uniform float surfcolZ;
+vec3 surfcol = vec3(0.5 + surfcolX/3.2, 0.5 + surfcolY/3.2, 0.5 + surfcolZ/3.2);
+varying vec4  Color;
+uniform float v_offset;
+uniform float v_offmd;
+uniform float v_scale;
+float scale_normout = v_scale+6.3;
+
+void main(void)
+{
+    // Vertex manipulationa and transform
+    vec3 offset = 10.0 * vec3(v_offset, 0., 0.);
+    if (v_offmd <= -0.1) {
+     offset = 10.0 * vec3(0., 0., v_offset);
+    }
+    if (v_offmd >= 0.1) {
+     offset = 10.0 * vec3(0., v_offset, 0.);
+    }
+    vec3 vertex = (gl_Vertex.xyz + offset) * scale_normout;
+    gl_Position = gl_ModelViewProjectionMatrix * vec4(vertex,1.0);
+
+    vec3 normal = gl_Normal;
+    normal = normalize(gl_NormalMatrix * normal);
+    vec3 position = vec3(gl_ModelViewMatrix * vec4(vertex,1.0));
+    vec3 lightVec = normalize(light_pos - position);
+    float diffuse = max(dot(lightVec, normal), 0.0);
+    if (diffuse < 0.125)
+         diffuse = 0.125;
+    Color = vec4(surfcol * diffuse, 1.0);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec4 Color;
+
+void main (void)
+{
+    gl_FragColor = Color;
+}
+]]>
+		</program>
+	</language>
+</jittershader>

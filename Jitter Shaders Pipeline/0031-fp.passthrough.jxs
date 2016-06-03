@@ -1,0 +1,26 @@
+<jittershader name="passthrough">
+	<language name="glsl" version="1.0">
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec4 basecolor;
+varying float pos;
+void main( void )
+{
+	gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+    	pos = gl_ModelViewProjectionMatrix * vec4(gl_Vertex.x,gl_Vertex.y,gl_Vertex.z,1.0);
+	basecolor = gl_Color;
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec4 basecolor;
+varying float pos;
+void main( void )
+{
+	gl_FragColor = pos*basecolor;
+}
+]]>
+		</program>
+	</language>
+</jittershader>

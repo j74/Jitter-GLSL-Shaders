@@ -1,0 +1,202 @@
+<jittershader name="foggy">
+	<param name="density" type="float" default="-6.2" />
+	<param name="gain" type="float" default="-3.2" />
+	<param name="baseR" type="float" default="6.4" />
+	<param name="baseG" type="float" default="4.6" />
+	<param name="baseB" type="float" default="-0.4" />
+	<param name="fogR" type="float" default="-6.3" />
+	<param name="fogG" type="float" default="-6.3" />
+	<param name="fogB" type="float" default="-6.3" />
+	<param name="fogA" type="float" default="-6.3" />
+	<param name="tangX" type="float" default="-6.3" />
+	<param name="tangY" type="float" default="6.4" />
+	<param name="tangZ" type="float" default="-0.5" />
+	<param name="use_text" type="float" default="0.0" />
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.2">
+		<bind param="density" program="vp" />
+		<bind param="gain" program="vp" />
+		<bind param="tangX" program="vp" />
+		<bind param="tangY" program="vp" />
+		<bind param="tangZ" program="vp" />
+		<bind param="baseR" program="fp" />
+		<bind param="baseG" program="fp" />
+		<bind param="baseB" program="fp" />
+		<bind param="fogR" program="fp" />
+		<bind param="fogG" program="fp" />
+		<bind param="fogB" program="fp" />
+		<bind param="fogA" program="fp" />
+		<bind param="use_text" program="fp" />
+		<bind param="tex0" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+uniform float density;
+uniform float gain;
+float fog_density = 0.5 + density/12.8;
+uniform float tangX;
+uniform float tangY;
+uniform float tangZ;
+vec3 tangent = vec3(0.5 + tangX/3.2, 0.5 + tangY/3.2, 0.5 + tangZ/3.2);
+varying float atten; 
+varying float fogFactor; 
+varying vec3 lightVec, viewVec;
+varying vec2 texcoord0;
+varying vec4 vertcolor;
+varying vec3 diffColor;
+varying vec3 specColor;
+varying vec2 viewDepth;
+varying vec2 uv;
+vec3 eyeVector = vec3(1.0,-1.0,3.0);
+vec3 lightVector = vec3(2.9,1.9,1.9);
+float depth = 0.1;
+
+void main(void)
+{
+	gl_Position = ftransform();
+	gl_TexCoord[0]  = gl_MultiTexCoord0;
+	vertcolor = gl_Color;
+			
+	// Define Normal n, Tangent t and Binormal b
+	// B = N X T
+	// N = T X B
+	// T = B X N
+	// Rotation = [T'|B'|N']
+	vec3 n = normalize(gl_NormalMatrix * gl_Normal);
+	vec3 t = normalize(gl_NormalMatrix * tangent);
+	vec3 b = cross(n, t);
+
+	// Vertex position transformed	
+	vec3 vVertex = vec3(gl_ModelViewMatrix * gl_Vertex);
+	// LightDistance between Light source and Vertex position transformed
+	vec3 vLVec = gl_LightSource[0].position.xyz - vVertex;
+
+	// Attenuation f(LightDistance)
+	atten = 1.0 / (1.0 + 0.00001 * dot(vLVec, vLVec));
+	// atten = 1.0 / (1.0 + 0.00001 * dot(vec3(1.0,1.0,1.0), vLVec));
+
+	// Prepare Vertex and LightDistance for fragment shader
+	vec3 vVec = -vVertex;
+	viewVec.x = dot(vVec, t);
+	viewVec.y = dot(vVec, b);
+	viewVec.z = dot(vVec, n);
+	lightVec.x = dot(vLVec, t);
+	lightVec.y = dot(vLVec, b);
+	lightVec.z = dot(vLVec, n);
+
+	// If a texture is applied, generate transformed coordinates for fragment program
+	texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+
+	// Override manual fog values to GL 
+	if (fog_density == 0)
+	{
+	fog_density = gl_Fog.density;
+	}
+
+	// Calculate Fog factor 	
+	const float LOG2 = 1.442695;
+	gl_FogFragCoord = length(vVertex);
+	fogFactor = exp2( - pow(fog_density,(6.4 + gain)) * gl_FogFragCoord * gl_FogFragCoord * LOG2 );
+	fogFactor = clamp(fogFactor, 0.0, 1.0);
+
+    	// transform normal from model-space to view-space
+    	vec3 normalVec = gl_NormalMatrix * gl_Normal;
+    	normalVec = normalize(normalVec);
+
+    	// compute the eye->vertex vector
+    	vec3 eyeVec = eyeVector;   //infinite viewer (Best looking)
+
+    	// compute the view depth for the thin film
+    	viewDepth = vec2((1.0 / dot(normalVec, eyeVec)) * depth);
+    
+    	// store normalized light vector
+    	vec3 lightVec = normalize(lightVector);
+
+    	// calculate half angle vector
+    	vec3 halfAngleVec = normalize(lightVec + eyeVec);
+
+    	// calculate diffuse component
+    	float diffuse = max(dot(normalVec, lightVec), 0.0);
+
+    	// calculate specular component
+    	float specular = max(dot(normalVec, halfAngleVec), 0.0);
+    	specular = pow(specular, 32.0);
+
+    	// output final lighting results
+    	diffColor = vec3(diffuse);
+    	specColor = vec3(specular);
+
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+uniform float baseR;
+uniform float baseG;
+uniform float baseB;
+uniform float fogR;
+uniform float fogG;
+uniform float fogB;
+uniform float fogA;
+uniform float use_text;
+uniform sampler2DRect tex0;
+varying vec2 texcoord0;
+varying float atten; 
+varying float fogFactor; 
+varying vec3 lightVec, viewVec;
+varying vec4 vertcolor;
+varying vec3 diffColor;
+varying vec3 specColor;
+varying vec2 viewDepth;
+varying vec2 uv;
+
+void main (void)
+{
+	// LightDistance
+	vec3 lVec = normalize(lightVec);
+	// Vertex View
+	vec3 vVec = normalize(viewVec);
+
+	// Manual bump map
+	vec4 base = vec4(0.5,0.5,0.5,0.5);
+	vec3 bump = vec3(0.5,0.5,0.5);
+	vec4 base2 = vec4(0.5,0.5,0.5,0.5);
+
+	float diffuse = max(dot(lVec, bump),0.0);
+	float specular = pow(clamp(dot(reflect(-vVec, bump), lVec), 0.0, 1.0), gl_FrontMaterial.shininess );
+	vec4 vAmbient = gl_FrontLightProduct[0].ambient * base + (base2*0.4);
+	vec4 vDiffuse = gl_FrontLightProduct[0].diffuse * diffuse * base;
+	vec4 vSpecular = gl_FrontLightProduct[0].specular * specular;
+
+	// Amount of fog
+	vec4 fog_amount = (vAmbient + vDiffuse + vSpecular) * atten;	
+
+	// Color of fog
+	vec4 fog_color = vec4(0.5 + fogR/12.6, 0.5 + fogG/12.6, 0.5 + fogB/12.6, 0.5 + fogA/12.6);
+
+    	// diffuse material color
+    	vec3 diffMaterial = vec3((baseR+6.4)/12.8,(baseG+6.4)/12.8,(baseB+6.4)/12.8);
+
+    	// lookup fringe value based on view depth
+    	vec3 fringeColor = vec3(0.5,0.5,0.5);
+
+	// Color of texture if present
+	vec4 color = vertcolor;
+	if (use_text > 0.0)
+	{
+	 // Read from texture
+    	 color = texture2DRect(tex0, texcoord0) + vec4(diffColor*diffMaterial + fringeColor*specColor, 1.0);
+	} else
+        {
+	 // Basecolor from Material
+    	 color = vec4(diffColor*diffMaterial + fringeColor*specColor, 1.0);
+	}
+
+    	// Modulate specular ligh ting by fringe color, combine with regular lighting
+	// Mix texture, color and fog
+	gl_FragColor = mix(mix(fog_color, fog_amount+color, fogFactor*color), color, fogFactor);
+
+}
+]]>
+		</program>
+	</language>
+</jittershader>

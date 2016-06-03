@@ -1,0 +1,153 @@
+<jittershader name="morph-harmonics">
+	<description>Morph with harmonics shader, with phong lighting</description>
+	<param name="morph" type="float" default="0.0" />
+	<param name="thresh" type="float" default="-6.4." />
+	<param name="sphere" type="float" default="0.1" />
+	<param name="delta" type="float" default="0.01" />
+	<param name="m1" type="float" default="-6.4" />
+	<param name="m2" type="float" default="-6.4" />
+	<param name="m3" type="float" default="0.0" />
+	<param name="m4" type="float" default="0.0" />
+	<param name="eyeX" type="float" default="0."/>
+	<param name="eyeY" type="float" default="0."/>
+	<param name="eyeZ" type="float" default="4."/>
+	<param name="Ia_r" type="float" default="0.0" />
+	<param name="Ia_g" type="float" default="0.0" />
+	<param name="Ia_b" type="float" default="0.0" />
+	<param name="Ii_r" type="float" default="1.0" />
+	<param name="Ii_g" type="float" default="1.0" />
+	<language name="glsl" version="1.0">
+		<bind param="morph" program="vp" />
+		<bind param="m1" program="vp" />
+		<bind param="m2" program="vp" />
+		<bind param="m3" program="vp" />
+		<bind param="m4" program="vp" />
+		<bind param="sphere" program="vp" />
+		<bind param="thresh" program="fp" />
+		<bind param="delta" program="vp" />
+		<bind param="Ia_r" program="fp" />
+		<bind param="Ia_g" program="fp" />
+		<bind param="Ia_b" program="fp" />
+		<bind param="Ii_r" program="fp" />
+		<bind param="Ii_g" program="fp" />
+		<bind param="eyeX" program="fp" />
+		<bind param="eyeY" program="fp" />
+		<bind param="eyeZ" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec3 N;
+varying vec3 P;
+
+#define PI 3.141519
+uniform float morph;
+uniform float sphere;
+uniform float m1;
+uniform float m2;
+uniform float m3;
+uniform float m4;
+uniform float delta;
+float m1_m = 6.4 + m1;
+float m2_m = 6.4 + m2;
+
+vec3 surface(vec2 point)
+{
+	//surface creation
+	float r = 0.;
+	r+=sin(m1_m*point.y);
+	r+=cos(m2_m*point.y);
+	r+=sin(m1_m*point.x);
+	r+=cos(m2_m*point.x);
+	vec3 s_point;
+	float sphi = sin(point.x+m3);
+	s_point.x = r*sphi*cos(point.y+m4);
+	s_point.z = r*cos(point.x+m4);
+	s_point.y = r*sphi*sin(point.y+m4);
+	vec3 o_point;
+	sphi = sin(point.x);
+	o_point.x = sphi*cos(point.y);
+	o_point.z = cos(point.x);
+	o_point.y = sphi*sin(point.y);
+	s_point = mix(s_point,o_point,sphere);
+	return s_point;
+}
+
+void main (void)
+{
+	vec4 V = vec4(surface(gl_Vertex.xy), 1.);
+
+	//vertices into eye space
+	P = (gl_ModelViewMatrix*V).xyz;
+	vec3 neighbour1 = surface(vec2(gl_Vertex.x + delta, gl_Vertex.y));
+	vec3 neighbour2 = surface(vec2(gl_Vertex.x, gl_Vertex.y + delta));
+	vec3 tangent = normalize(neighbour1 - V.xyz);
+	vec3 bitangent = normalize(neighbour2 - V.xyz);
+
+	//normals into eye space
+	N = normalize( cross(tangent, bitangent) );
+	N = mat3(gl_ModelViewMatrixInverseTranspose[0].xyz, 
+		 gl_ModelViewMatrixInverseTranspose[1].xyz,
+		 gl_ModelViewMatrixInverseTranspose[2].xyz)*N;
+	
+	//morph between original shape and surface generated shape
+    	vec4 vertex = vec4(gl_Vertex.xyz,1.0);
+	gl_Position = gl_ModelViewProjectionMatrix*(morph*V+(1.-morph)*vertex);
+}
+]]>		
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+uniform float thresh;
+float thrs = (thresh + 6.4)/12.8;
+uniform float eyeX;
+uniform float eyeY;
+uniform float eyeZ;
+vec3 eyePosition = vec3(eyeX,eyeY,eyeZ);
+uniform float Ia_r;
+uniform float Ia_g;
+uniform float Ia_b;
+vec4 Ia = vec4(Ia_r,Ia_g,Ia_b,0.0);
+uniform float Ii_r;
+uniform float Ii_g;
+uniform float Ii_b;
+vec4 Ii = vec4(Ii_r,Ii_g,1.0,1.0);
+float Ns = 10.;
+vec4 fig = vec4(1.,1.,1.,1.);
+vec4 Ka = vec4(1.0,1.0,1.0,1.0);
+vec4 Kd = vec4(0.3,0.3,0.3,1.0);
+vec4 Ks = vec4(1.0,1.0,1.0,1.0);
+varying vec3 N;
+varying vec3 P;
+
+void main (void)
+{
+	// eclipse....
+	vec3 Nn = normalize(N);
+	vec3 dt = Nn;
+	float eye =  dot(normalize(P),dt);
+	vec3 t2 = sin(dt.xyz*fig.yzw)+sin(dt.zyx*fig.yzw);
+	t2 = abs(t2);
+	float goop = dot(t2,vec3(1.));
+	goop = goop*0.25;
+	// discard if eclipsed
+	if (goop < thrs) discard;
+	
+	//ambient
+	vec4 ambient = Ia*Ka;
+	vec3 lightPosition = vec3(gl_LightSource[0].position);
+	
+	//diffuse
+	vec3 L = normalize(lightPosition - P);
+	vec4 diffuse = Kd*Ii*max(dot(Nn, L), 0.);
+	
+	//specular
+	vec3 V = normalize(eyePosition - P);
+	vec3 H = normalize(L + V); //average of lighting and view vector)  not true reflection vector
+	vec4 specular = Ks*Ii * pow(max(dot(Nn,H), 0.), Ns);
+	
+	//combined
+	gl_FragColor = ambient + diffuse + specular;
+}
+]]>		
+		</program>		
+	</language>
+</jittershader>

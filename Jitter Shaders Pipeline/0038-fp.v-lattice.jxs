@@ -1,0 +1,104 @@
+<jittershader name="OB-lattice-ch11">
+	<param name="light_posX" type="float" default="3.0" />
+	<param name="light_posY" type="float" default="4.8" />
+	<param name="light_posZ" type="float" default="4.0" />
+	<param name="light_colX" type="float" default="6.4" />
+	<param name="light_colY" type="float" default="6.4" />
+	<param name="light_colZ" type="float" default="6.4" />
+	<param name="Kd" type="float" default="-2.1" />
+	<param name="threshold" type="float" default="6.4" />
+	<param name="surfcolX" type="float" default="-6.4" />
+	<param name="surfcolY" type="float" default="-6.4" />
+	<param name="surfcolZ" type="float" default="-6.4" />
+	<param name="v_scale" type="float" default="-5.3" />
+	<param name="v_offset" type="float" default="0.0" />
+	<param name="v_offmd" type="float" default="0.0" />
+	<language name="glsl" version="1.2">
+		<bind param="light_posX" program="vp" />
+		<bind param="light_posY" program="vp" />
+		<bind param="light_posZ" program="vp" />
+		<bind param="light_colX" program="vp" />
+		<bind param="light_colY" program="vp" />
+		<bind param="light_colZ" program="vp" />
+		<bind param="Kd" program="vp" />
+		<bind param="threshold" program="fp" />
+		<bind param="surfcolX" program="fp" />	
+		<bind param="surfcolY" program="fp" />	
+		<bind param="surfcolZ" program="fp" />	
+		<bind param="v_offmd" program="vp" />
+		<bind param="v_scale" program="vp" />
+		<bind param="v_offset" program="vp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+uniform float light_posX;
+uniform float light_posY;
+uniform float light_posZ;
+uniform float light_colX;
+uniform float light_colY;
+uniform float light_colZ;
+uniform float Kd;
+vec3 light_pos = 10.0 * vec3(light_posX, light_posY, light_posZ);
+vec3 light_col = vec3(0.5 + light_colX/3.2, 0.5 + light_colY/3.2, 0.5 + light_colZ/3.2);
+vec3 eye_pos = vec3(0.0, 0.0, 0.0);
+vec3 specular = vec3(0.5, 0.5, 0.5);
+vec3 ambient = vec3(0.2, 0.2, 0.2);
+varying vec3 diffusecolor;
+varying vec3 specularcolor;
+uniform float v_offset;
+uniform float v_offmd;
+uniform float v_scale;
+float scale_normout = v_scale+6.3;
+
+void main(void)
+{
+    // Vertex manipulationa and transform
+    vec3 offset = 10.0 * vec3(v_offset, 0., 0.);
+    if (v_offmd <= -0.1) {
+     offset = 10.0 * vec3(0., 0., v_offset);
+    }
+    if (v_offmd >= 0.1) {
+     offset = 10.0 * vec3(0., v_offset, 0.);
+    }
+    vec3 vertex = (gl_Vertex.xyz + offset) * scale_normout;
+    gl_Position = gl_ModelViewProjectionMatrix * vec4(vertex,1.0);
+
+    vec3 ecPosition = vec3(gl_ModelViewMatrix * gl_Vertex);
+    vec3 tnorm      = normalize(gl_NormalMatrix * gl_Normal);
+    vec3 lightVec   = normalize(light_pos - ecPosition);
+    vec3 viewVec    = normalize(eye_pos - ecPosition);
+    vec3 Hvec       = normalize(viewVec + lightVec);
+    float spec = abs(dot(Hvec, tnorm));
+    spec = pow(spec, 16.0);
+    diffusecolor    = light_col * vec3 (Kd * abs(dot(lightVec, tnorm)));
+    diffusecolor    = clamp(ambient + diffusecolor, 0.0, 1.0);
+    specularcolor   = clamp((light_col * specular * spec), 0.0, 1.0);
+    gl_TexCoord[0]  = gl_MultiTexCoord0;
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec3  diffusecolor;
+varying vec3  specularcolor;
+uniform float threshold;
+uniform float surfcolX;
+uniform float surfcolY;
+uniform float surfcolZ;
+vec2 thresh = vec2(0.5 + threshold/3.2, 0.5 + threshold/3.2);
+vec3 surfcol = vec3(0.5 + surfcolX/3.2, 0.5 + surfcolY/3.2, 0.5 + surfcolZ/3.2);
+const float scale1 = 1.0;
+const float scale2 = 1.0;
+vec2 scale = vec2(scale1, scale2);
+
+void main()
+{
+    float ss = fract(gl_TexCoord[0].s * scale.s);
+    float tt = fract(gl_TexCoord[0].t * scale.t);
+    if ((ss > thresh.s) && (tt > thresh.t)) discard;
+    vec3 finalColor = surfcol * diffusecolor + specularcolor;
+    gl_FragColor = vec4(finalColor, 1.0);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

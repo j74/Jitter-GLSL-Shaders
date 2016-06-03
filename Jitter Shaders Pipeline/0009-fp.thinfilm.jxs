@@ -1,0 +1,90 @@
+<jittershader name="metalpaint">
+	<param name="lightX" type="float" default="2.9" />
+	<param name="lightY" type="float" default="1.9" />
+	<param name="lightZ" type="float" default="1.9" />
+	<param name="eyeX" type="float" default="0.2" />
+	<param name="eyeY" type="float" default="0.2" />
+	<param name="eyeZ" type="float" default="0.2" />
+	<language name="glsl" version="1.2">
+		<bind param="eyeX" program="fp" />
+		<bind param="eyeY" program="fp" />
+		<bind param="eyeZ" program="fp" />
+		<bind param="lightX" program="fp" />
+		<bind param="lightY" program="fp" />
+		<bind param="lightZ" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+uniform float lightX;
+uniform float lightY;
+uniform float lightZ;
+vec3 lightVector = vec3(lightX,lightY,lightZ);
+
+uniform float eyeX;
+uniform float eyeY;
+uniform float eyeZ;
+vec3 eyeVector = vec3(eyeX,eyeY,eyeZ);
+
+varying vec3 diffColor;
+varying vec3 specColor;
+varying vec2 viewDepth;
+varying vec2 uv;
+
+void main()
+{
+    // transform position to clip space
+    gl_Position = ftransform();
+
+    // transform normal from model-space to view-space
+    vec3 normalVec = gl_NormalMatrix * gl_Normal;
+    normalVec = normalize(normalVec);
+
+    // compute the eye->vertex vector
+    vec3 eyeVec = eyeVector;   //infinite viewer (Best looking)
+
+    // compute the view depth for the thin film
+    viewDepth = vec2((1.0 / dot(normalVec, eyeVec)));
+    
+    // store normalized light vector
+    vec3 lightVec = normalize(lightVector);
+
+    // calculate half angle vector
+    vec3 halfAngleVec = normalize(lightVec + eyeVec);
+
+    // calculate diffuse component
+    float diffuse = max(dot(normalVec, lightVec), 0.0);
+
+    // calculate specular component
+    float specular = max(dot(normalVec, halfAngleVec), 0.0);
+    specular = pow(specular, 32.0);
+
+    // output final lighting results
+    diffColor = vec3(diffuse);
+    specColor = vec3(specular);
+
+    // output texture coordinates for diffuse map
+    uv = gl_MultiTexCoord0.xy;
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec3 diffColor;
+varying vec3 specColor;
+varying vec2 viewDepth;
+varying vec2 uv;
+
+void main()
+{
+    // diffuse material color
+    vec3 diffMaterial = vec3(0.5,0.5,0.5);
+
+    // lookup fringe value based on view depth
+    vec3 fringeColor = vec3(0.5,0.5,0.5);
+
+    // modulate specular ligh ting by fringe color, combine with regular lighting
+    gl_FragColor = vec4(diffColor*diffMaterial + fringeColor*specColor, 1.0);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

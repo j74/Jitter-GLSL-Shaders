@@ -1,0 +1,69 @@
+<jittershader name="mat-plastic-light-dir">
+	<param name="modelViewProj" type="float4x4" state="MODELVIEW_PROJECTION_MATRIX" />
+	<param name="eyePosition" type="float3" default="0.0 0.0 -10.0" />
+	<param name="lightPosition" type="float3" state="LIGHT0_POSITION" />
+	<param name="lightColor" type="float3" state="LIGHT0_DIFFUSE" />
+	<param name="globalAmbient" type="float3" default="0.1 0.1 0.1" />
+	<param name="Ka" type="float3" default="1.0 1.0 1.0" />
+	<param name="Ke" type="float3" default="0.0 0.0 0.0" />
+	<param name="Kd" type="float3" default="0.6 0.6 0.6" />
+	<param name="Ks" type="float3" default="1.0 1.0 1.0" />
+	<param name="shininess" type="float" default="8.0" />
+	<language name="cg" version="1.0">
+		<bind param="modelViewProj" program="passthru" />
+		<bind param="eyePosition" program="shiny" />
+		<bind param="lightPosition" program="shiny" />
+		<bind param="lightColor" program="shiny" />
+		<bind param="globalAmbient" program="shiny" />
+		<bind param="Ka" program="shiny" />
+		<bind param="Ke" program="shiny" />
+		<bind param="Kd" program="shiny" />
+		<bind param="Ks" program="shiny" />
+		<bind param="shininess" program="shiny" />
+		<program name="passthru" type="vertex" source="sh.passthru.vp.cg" entry="passthru" />		
+		<program name="shiny" type="fragment" entry="shiny"> 
+<![CDATA[
+void shiny(
+	float4 position  : TEXCOORD0,                        
+	float3 normal    : TEXCOORD1,
+
+	out float4 color     : COLOR,
+
+	uniform float3 globalAmbient,
+	uniform float3 lightColor,
+	uniform float3 lightPosition,
+	uniform float3 eyePosition,
+	uniform float3 Ke,
+	uniform float3 Ka,
+	uniform float3 Kd,
+	uniform float3 Ks,
+	uniform float  shininess)
+{
+  float3 P = position.xyz;
+  float3 N = normal;
+
+  // Compute emissive term
+  float3 emissive = Ke;
+
+  // Compute ambient term
+  float3 ambient = Ka * globalAmbient;
+
+  // Compute the diffuse term
+  float3 L = normalize(lightPosition - P);
+  float diffuseLight = max(dot(L, N), 0);
+  float3 diffuse = Kd * lightColor * diffuseLight;
+
+  // Compute the specular term
+  float3 V = normalize(eyePosition - P);
+  float3 H = normalize(L + V);
+  float specularLight = pow(max(dot(H, N), 0), shininess);
+  if (diffuseLight <= 0) specularLight = 0;
+  float3 specular = Ks * lightColor * specularLight;
+
+  color.xyz = emissive + ambient + diffuse + specular;
+  color.w = 1;
+}
+]]>
+		</program>		
+	</language>
+</jittershader>

@@ -1,0 +1,107 @@
+<jittershader name="mat.phong.1.light.fog.falloff.jxs">
+	<param name="diffuseR" type="float" default="4.8" />
+	<param name="diffuseG" type="float" default="4.8" />
+	<param name="diffuseB" type="float" default="4.8" />
+	<param name="specolR" type="float" default="-6.3" />
+	<param name="specolG" type="float" default="-6.3" />
+	<param name="specolB" type="float" default="3." />
+	<param name="fogcolR" type="float" default="-6.3" />
+	<param name="fogcolG" type="float" default="-6.3" />
+	<param name="fogcolB" type="float" default="-6.3" />
+	<param name="lightfall" type="float" default="0.1" />
+	<param name="density" type="float" default="-6.3" />
+	<param name="diffgain" type="float" default="0." />
+	<param name="diffbase" type="float" default="0." />
+	<param name="shininess" type="float" default="0.4" />
+	<language name="glsl" version="1.0">
+		<bind param="specolR" program="fp" />
+		<bind param="specolG" program="fp" />
+		<bind param="specolB" program="fp" />
+		<bind param="fogcolR" program="fp" />
+		<bind param="fogcolG" program="fp" />
+		<bind param="fogcolB" program="fp" />
+		<bind param="diffuseR" program="fp" />
+		<bind param="diffuseG" program="fp" />
+		<bind param="diffuseB" program="fp" />
+		<bind param="lightfall" program="fp" />
+		<bind param="density" program="fp" />
+		<bind param="diffbase" program="fp" />
+		<bind param="diffgain" program="fp" />
+		<bind param="fog_color" program="fp" />
+		<bind param="Ks" program="fp" />
+		<bind param="shininess" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec3 N;
+varying vec3 P;
+
+void main(void)
+{
+	gl_Position = ftransform();
+	N = gl_NormalMatrix * gl_Normal;
+	P = (gl_ModelViewMatrix*gl_Vertex).xyz;
+}
+]]>
+		</program>
+
+		<program name="fp" type="fragment">
+<![CDATA[
+uniform float diffuseR;
+uniform float diffuseG;
+uniform float diffuseB;
+vec4 Kd = vec4((diffuseR+6.4)/12.8,(diffuseG+6.4)/12.8,(diffuseB+6.4)/12.8,1.0);
+uniform float specolR;
+uniform float specolG;
+uniform float specolB;
+vec4 Ks = vec4((specolR+6.4)/12.8,(specolG+6.4)/12.8,(specolB+6.4)/12.8,1.0);
+uniform float fogcolR;
+uniform float fogcolG;
+uniform float fogcolB;
+vec4 fog_color = vec4((fogcolR+6.4)/12.8,(fogcolG+6.4)/12.8,(fogcolB+6.4)/12.8,1.0);
+uniform float lightfall;
+uniform float density;
+float densnorm = (density+6.4)/12.8;
+uniform float diffgain;
+uniform float diffbase;
+float base = (diffbase+6.4)/12.8;
+uniform float shininess;
+varying vec3 N;
+varying vec3 P;
+
+void main(void)
+{
+vec3 Nn = normalize(N);
+vec3 Vn = normalize(-P);
+vec4 color = vec4(0., 0., 0., 0.);
+
+float light_distance;
+float light_exponent;
+float light_factor;
+vec3 light_pos_vec;
+vec3 Ldir;
+vec4 ambient;
+vec4 diffuse;
+vec4 specular;
+vec3 Hn;
+
+light_pos_vec = gl_LightSource[0].position.xyz - P;
+light_distance = 0.1*length(light_pos_vec);
+light_exponent = light_distance*lightfall;
+light_factor = exp2(-abs(light_exponent));
+Ldir = normalize(gl_LightSource[0].position.xyz - P);
+Hn = normalize(Ldir + Vn);
+ambient = gl_LightSource[0].ambient;
+diffuse = diffgain*(base+gl_LightSource[0].diffuse*Kd*max(dot(Nn, Ldir), 0.));
+specular = gl_LightSource[0].specular*Ks*pow(max( dot(Nn, Hn) , 0.), shininess);
+color += ambient + light_factor*(diffuse + specular);
+
+float distance = max(length(P)-1., 0.);
+float fogExponent = distance*densnorm;
+float fogFactor = exp2(-abs(fogExponent));
+color = mix(fog_color, color, fogFactor);
+gl_FragColor = color;
+}
+]]>
+		</program>
+	</language>
+</jittershader>

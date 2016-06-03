@@ -1,0 +1,167 @@
+<jittershader name="metalpaint">
+	<param name="lightX" type="float" default="2.9" />
+	<param name="lightY" type="float" default="1.9" />
+	<param name="lightZ" type="float" default="1.9" />
+	<param name="diffuseX" type="float" default="0.2" />
+	<param name="diffuseY" type="float" default="0.2" />
+	<param name="diffuseZ" type="float" default="0.2" />
+	<param name="speclrX" type="float" default="0.2" />
+	<param name="speclrY" type="float" default="0.2" />
+	<param name="speclrZ" type="float" default="0.2" />
+	<param name="ambntX" type="float" default="0.1" />
+	<param name="ambntY" type="float" default="0.1" />
+	<param name="ambntZ" type="float" default="0.1" />
+	<language name="glsl" version="1.2">
+		<bind param="diffuseX" program="fp" />
+		<bind param="diffuseY" program="fp" />
+		<bind param="diffuseZ" program="fp" />
+		<bind param="speclrX" program="fp" />
+		<bind param="speclrY" program="fp" />
+		<bind param="speclrZ" program="fp" />
+		<bind param="ambntX" program="fp" />
+		<bind param="ambntY" program="fp" />
+		<bind param="ambntZ" program="fp" />
+		<bind param="lightX" program="fp" />
+		<bind param="lightY" program="fp" />
+		<bind param="lightZ" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec3 oPosition;
+varying vec3 ePosition;
+varying vec3 normal;
+varying vec2 uv;
+
+void main()
+{
+    // output clip space position
+    gl_Position = ftransform();
+
+    // output object space position
+    oPosition = gl_Vertex.xyz;
+
+    // output eye space position
+    ePosition = vec3(gl_ModelViewMatrix * gl_Vertex);
+
+    // output view space position
+    normal = gl_NormalMatrix * gl_Normal;
+
+    uv = gl_MultiTexCoord0.xy;
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+uniform float diffuseX;
+uniform float diffuseY;
+uniform float diffuseZ;
+vec3 diffuseColor = vec3(diffuseX,diffuseY,diffuseZ);
+
+uniform float speclrX;
+uniform float speclrY;
+uniform float speclrZ;
+vec3 speclrColor = vec3(speclrX,speclrY,speclrZ);
+
+uniform float ambntX;
+uniform float ambntY;
+uniform float ambntZ;
+vec3 ambntColor = vec3(ambntX,ambntY,ambntZ);
+
+uniform float lightX;
+uniform float lightY;
+uniform float lightZ;
+vec3 lightVector = vec3(lightX,lightY,lightZ);
+
+varying vec3 oPosition;
+varying vec3 ePosition;
+varying vec3 normal;
+varying vec2 uv;
+
+float fresnel(vec3 i, vec3 n, float eta);
+
+float saturate(float a)
+{
+    return clamp(a, 0.0, 1.0);
+}
+
+float fresnel(vec3 i, vec3 n, float eta)
+{
+    float c1;
+    float cs2;
+    float tflag;
+    vec3 t;
+    
+    // Refraction vector courtesy Paul Heckbert.
+    c1 = dot(-i,n);
+    cs2 = 1.0 - eta * eta * (1.0 - c1 * c1);
+    tflag = (cs2 >= 0.0) ? 1.0 : 0.0;
+    t = tflag * (((eta * c1 - sqrt(cs2)) * n) + eta * i);
+    // t is already unit length or (0,0,0)
+
+    // From Global Illumination Compendium.
+    float ndott;
+    float cosr_div_cosi;
+    float cosi_div_cosr;
+    float fs;
+    float fp;
+    float kr;
+
+    ndott = dot(-n,t);
+    cosr_div_cosi = ndott / c1;
+    cosi_div_cosr = c1 / ndott;
+    fs = (cosr_div_cosi - eta) / (cosr_div_cosi + eta);
+    fs = fs * fs;
+    fp = (cosi_div_cosr - eta) / (cosi_div_cosr + eta);
+    fp = fp * fp;
+    kr = 0.5 * (fs + fp);
+    
+    return tflag*kr + (1.0 - tflag);
+}
+
+void main()
+{
+    vec3 diffuse_material_color = diffuseColor * 2.0;
+    vec3 decal = vec3(0.5,0.5,0.5);
+    vec3 L = normalize(lightVector);
+    vec3 N = normalize(normal);
+    float n_dot_l = dot(N, L);
+    float self_shadow = (n_dot_l > 0.0) ? 1.0 : 0.0;
+    vec3 diffuse_color = self_shadow * n_dot_l * (diffuse_material_color + ambntColor) * decal;
+    vec3 speclr_material_color = speclrColor;
+    float clearcoat_shininess = 80.0;
+    vec3 V = normalize(ePosition);
+    vec3 R = reflect(V, N);
+    float r_dot_l = self_shadow * saturate(dot(R, L));
+    vec3 speclr_color = pow(r_dot_l, clearcoat_shininess) * speclr_material_color;
+    float refraction_index_ratio = 1.0/1.5;
+    vec3 reflected_color = vec3(0.5,0.5,0.5);
+    float f = fresnel(V, N, refraction_index_ratio);
+    float freq = 2.1;
+    vec3 fleck_material_color = speclrColor * 4.0;
+    float fleck_locality = 15.0;
+    float fleck_shininess = 5.0;
+    vec3 noise_coords = oPosition * 4.0;
+    vec3 fleck_normal0 = vec3(0.5,0.5,0.5);
+    vec3 fleck_normal1 = vec3(0.5,0.5,0.5);
+    vec3 fleck_normal2 = vec3(0.5,0.5,0.5);
+    vec3 fleck_normal3 = vec3(0.5,0.5,0.5);
+    float  fleck_intensity = pow(saturate(abs(fleck_normal0.z)), fleck_shininess) + 
+                             pow(saturate(abs(fleck_normal1.z)), fleck_shininess) + 
+                             pow(saturate(abs(fleck_normal2.z)), fleck_shininess) + 
+                             pow(saturate(abs(fleck_normal3.z)), fleck_shininess);
+    float locality_term = pow(r_dot_l, fleck_locality);
+    fleck_intensity = fleck_intensity * locality_term * self_shadow;
+    vec3 fleck_color = fleck_intensity * fleck_material_color;
+    float clearcoat_smoothness = 25.0;
+    vec3 noise_vector = 0.5 * fleck_normal0 + 0.25 * fleck_normal1 + 
+        0.125 * fleck_normal2 + 0.0625 * fleck_normal3;
+    N = normalize(noise_vector + clearcoat_smoothness * N);
+    R = reflect(V, N);
+    r_dot_l = saturate(dot(R, L));
+    speclr_color = self_shadow * pow(r_dot_l, clearcoat_shininess) * speclr_material_color;
+    vec3 sum_color = mix(diffuse_color + fleck_color, reflected_color, f) + speclr_color;
+    gl_FragColor = vec4(sum_color, 1.0);
+}
+]]>
+		</program>
+	</language>
+</jittershader>
