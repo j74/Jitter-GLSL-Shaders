@@ -1,0 +1,107 @@
+<jittershader name="wavefront">
+	<param name="amount" type="float" default="0.5" />
+	<param name="time" type="float" default="0." />
+	<param name="gain_R" type="float" default="0.5" />
+	<param name="gain_G" type="float" default="0.5" />
+	<param name="gain_B" type="float" default="0.5" />
+	<param name="gain_T" type="float" default="0.5" />
+	<param name="frequency" type="float" default="1.0" />
+	<param name="x0" type="float" default="0." />
+	<param name="y0" type="float" default="0." />
+	<param name="mode" type="float" default="0.0" />
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.0">
+		<bind param="x0" program="fp" /> 
+		<bind param="y0" program="fp" /> 
+		<bind param="time" program="fp" />
+		<bind param="frequency" program="fp" />
+		<bind param="amount" program="fp" />
+		<bind param="gain_R" program="fp" />
+		<bind param="gain_G" program="fp" />
+		<bind param="gain_B" program="fp" />
+		<bind param="gain_T" program="fp" />
+		<bind param="mode" program="fp" />
+		<bind param="tex0" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 coord;
+varying vec2 texcoord0;
+
+void main(void)
+{
+        // Get vertex position in gl_Position
+	float pos_x = sign(gl_Vertex.x) - 0.5;
+	float pos_y = sign(gl_Vertex.y) - 0.5;
+	pos_x = pos_x * 2.0;
+	pos_y = pos_y * 2.0;
+	gl_Position = vec4(pos_x, pos_y,0.0,1.0);
+
+        // Transform coordinates in 2D (used by fragment)
+	coord = (gl_ProjectionMatrix*gl_Vertex).xy;
+	texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+}
+
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+
+const float pi = 3.14159;
+
+varying vec2 coord;
+varying vec2 texcoord0;
+uniform sampler2DRect tex0;
+uniform float x0;
+uniform float y0;
+uniform float time;
+uniform float frequency;
+uniform float amount;
+uniform float gain_R;
+uniform float gain_G;
+uniform float gain_B;
+uniform float gain_T;
+uniform float mode;
+
+float time_space;
+float wave;
+float delta_x;
+float delta_y;
+float delta_x2;
+float delta_y2;
+vec4 out_vec;
+
+void main()
+{   
+
+	// Get orginal texture
+	vec4 A = texture2DRect(tex0, texcoord0);
+
+	// Calculate time is given by external clocking + offset in position divided by wave_speed
+	delta_x = coord.x - x0;
+	delta_y = coord.y - y0;
+        delta_x2 = delta_x * delta_x;
+        delta_y2 = delta_y * delta_y;
+	time_space = gain_T * (time + (sqrt(delta_x2 + delta_y2)/(frequency*frequency)));
+
+	// Simulate the wave in amplitude, frequency and time
+	wave = amount * sin(2*pi*frequency*time_space);
+
+	// Apply the wave on top of the texture
+	if (mode >= 1.0)
+	{
+	out_vec.x = A.r * wave * gain_R;
+	out_vec.y = A.g * wave * gain_G;
+	out_vec.z = A.b * wave * gain_B;
+	} else {
+	out_vec.x = A.r + wave * gain_R;
+	out_vec.y = A.g + wave * gain_G;
+	out_vec.z = A.b + wave * gain_B;
+	}
+
+	out_vec.w = 1.0;
+	gl_FragColor = vec4(out_vec);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

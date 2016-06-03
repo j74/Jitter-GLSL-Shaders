@@ -1,0 +1,104 @@
+<jittershader name="textflow">
+	<param name="light1" type="float" default="0.0" />
+	<param name="light2" type="float" default="0.5" />
+	<param name="light3" type="float" default="1.0" />
+	<param name="light4" type="float" default="0.0" />
+	<param name="scale" type="float" default="0.1" />
+	<param name="ambient1" type="float" default="0.3" />
+	<param name="ambient2" type="float" default="0.4" />
+	<param name="ambient3" type="float" default="0.5" />
+	<param name="ambient4" type="float" default="1.0" />
+	<param name="diffuse1" type="float" default="0.3" />
+	<param name="diffuse2" type="float" default="0.4" />
+	<param name="diffuse3" type="float" default="0.5" />
+	<param name="diffuse4" type="float" default="1.0" />
+	<param name="tex0" type="int" default="0" />
+	<param name="h_tex1" type="int" default="1" />
+	<param name="n_tex2" type="int" default="2" />
+	<language name="glsl" version="1.0">
+		<bind param="light1" program="vp" />
+		<bind param="light2" program="vp" />
+		<bind param="light3" program="vp" />
+		<bind param="light4" program="vp" />
+		<bind param="scale" program="fp" />
+		<bind param="ambient1" program="fp" />
+		<bind param="ambient2" program="fp" />
+		<bind param="ambient3" program="fp" />
+		<bind param="ambient4" program="fp" />
+		<bind param="diffuse1" program="fp" />
+		<bind param="diffuse2" program="fp" />
+		<bind param="diffuse3" program="fp" />
+		<bind param="diffuse4" program="fp" />
+		<bind param="tex0" program="fp" />	
+		<bind param="h_tex1" program="fp" />	
+		<bind param="n_tex2" program="fp" />	
+		<program name="vp" type="vertex">
+
+<![CDATA[
+varying vec2 tex0Coordinate;
+varying vec3 lightVector;
+varying vec3 eyeVector;
+uniform float light1;
+uniform float light2;
+uniform float light3;
+uniform float light4;
+vec4 lightPosition = vec4(light1,light2,light3,light4);
+const vec3 tangent = vec3( 1.0, 0.0, 0.0 );
+
+void main()
+{
+   gl_Position = ftransform();
+   vec3 cameraInWorldSpace = gl_Position.xyz - gl_ModelViewMatrixInverse[3].xyz;
+   tex0Coordinate = gl_MultiTexCoord0.xy;  
+   lightVector = ( lightPosition - gl_Vertex ).xyz;
+   vec3 normal = gl_NormalMatrix * gl_Normal;
+   vec3 binormal = cross( tangent, normal );
+   mat3 tangentBinormalNormalMatrix = mat3( tangent, binormal, normal );
+   lightVector = tangentBinormalNormalMatrix * lightVector;
+   eyeVector = cameraInWorldSpace - ( gl_ModelViewMatrixInverse * gl_Vertex ).xyz;
+   eyeVector = tangentBinormalNormalMatrix * eyeVector;
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 tex0Coordinate;
+varying vec3 lightVector;
+varying vec3 eyeVector;
+uniform sampler2DRect tex0;
+uniform sampler2DRect h_tex1;
+uniform sampler2DRect n_tex2;
+uniform float scale;
+uniform float ambient1;
+uniform float ambient2;
+uniform float ambient3;
+uniform float ambient4;
+uniform float diffuse1;
+uniform float diffuse2;
+uniform float diffuse3;
+uniform float diffuse4;
+vec4 ambient = vec4(ambient1,ambient2,ambient3,ambient4);
+vec4 diffuse = vec4(diffuse1,diffuse2,diffuse3,diffuse4);
+
+void main()
+{
+   // Setting the bias this way is presented in "Parallax Mapping with Offset Limiting:
+   // A Per Pixel Approximation of Uneven Surfaces" by Terry Walsh.  See Section 4.1
+   // for a detailed explanation.
+   float bias = scale * 0.5;
+   vec3 normalizedLightDirection = normalize( lightVector );
+   vec3 normalizedEyeVector = normalize( eyeVector );
+   vec3 heightVector = tex02DRect( h_tex1, tex0Coordinate ).xyz;
+   float height = scale * length( heightVector ) - bias;
+   vec2 nexttex0Coordinate = height * normalizedEyeVector.xy + tex0Coordinate;
+   vec3 offsetNormal = tex02DRect( n_tex2, nexttex0Coordinate ).xyz;
+   // [0, 1] -> [-1, 1]
+   offsetNormal = offsetNormal * 2.0 - 1.0;
+   float diffuseContribution = clamp( dot( offsetNormal, normalizedLightDirection ), 0.0, 1.0 );
+   vec4 tex0Color = tex02DRect( tex0, nexttex0Coordinate );
+   gl_FragColor = ( ambient + diffuse * diffuseContribution ) * tex0Color;
+}
+]]>
+		</program>
+	</language>
+</jittershader>

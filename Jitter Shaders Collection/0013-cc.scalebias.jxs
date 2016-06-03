@@ -1,0 +1,41 @@
+<jittershader name="scalebias">
+	<description>
+	Scale and offset color channels
+	</description>
+	<param name="scale" type="vec4" default="1.0 1.0 1.0 1.0">
+		<description>Scale factor (r, g, b, a)</description>
+	</param>
+	<param name="bias" type="vec4" default="0.0 0.0 0.0 0.0">
+		<description>Bias amount (r, g, b, a)</description>
+	</param>
+	<language name="arb" version="1.0">
+		<bind param="scale" program="fp" target="env[0]" />
+		<bind param="bias" program="fp" target="env[1]" />		
+		<program name="vp" type="vertex" source="sh.passthru.vp.arb" />
+		<program name="fp" type="fragment">
+<![CDATA[
+!!ARBfp1.0
+# Copyright 2005 Cycling '74
+# scale and offset colors
+
+PARAM scale = program.env[0];
+PARAM bias = program.env[1];
+TEMP t0;
+
+# get texture value
+TEX t0, fragment.texcoord[0], texture[0], RECT;
+
+# multiply the current color with scale values
+MUL t0, t0, scale;
+
+# add bias values
+ADD t0, t0, bias; 
+
+# move to result value 
+MOV result.color, t0;
+
+END
+]]>
+		</program>
+	</language>
+</jittershader>

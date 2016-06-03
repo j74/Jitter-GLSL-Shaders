@@ -1,0 +1,63 @@
+<jittershader name="waveswirl">
+	<param name="angle" type="float" default="4.5" />
+	<param name="radius" type="float" default="-5.9" />
+	<param name="x0" type="float" default="0.0" />
+	<param name="y0" type="float" default="0.5" />
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.0">
+		<bind param="x0" program="fp" /> 
+		<bind param="y0" program="fp" /> 
+		<bind param="radius" program="fp" />
+		<bind param="angle" program="fp" />
+		<bind param="tex0" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+void main()
+{
+	// perform standard transform on vertex
+	gl_Position = ftransform();  
+	// transform texcoord
+	texcoord0 = vec2(gl_TextureMatrix[0]*gl_MultiTexCoord0);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+uniform sampler2DRect tex0;
+uniform float x0;
+uniform float y0; 
+uniform float radius;
+uniform float angle;
+float radius_proc = (radius+6.4);
+float rt_w = textureSize(tex0,0);
+float rt_h = textureSize(tex0,0)*0.5625; 
+vec2 center = vec2(((x0+6.4)/12.8),((y0+6.4)/12.8));
+
+void main (void)
+{
+  vec2 coord = texcoord0;
+  vec2 uv = vec2(coord.x/rt_w,coord.y/rt_h); 
+  vec2 tc = uv - center;
+  float dist = length(tc);
+
+  if (dist < radius_proc)
+  {
+    float percent = (radius_proc - dist) / radius_proc;
+    float theta = percent * percent * angle * 2.0;
+    float s = sin(theta);
+    float c = cos(theta);
+    tc = vec2(dot(tc, vec2(c, -s)), dot(tc, vec2(s, c)));
+  }
+  tc += center;
+  uv = vec2(tc.x*rt_w,tc.y*rt_h);
+  vec3 color = texture2DRect(tex0, uv).rgb;
+  gl_FragColor = vec4(color, 1.0);
+//gl_FragColor = vec4(radius_proc,0.0,0.0,1.0);
+}
+
+]]>
+		</program>
+	</language>
+</jittershader>

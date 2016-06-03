@@ -1,0 +1,65 @@
+<jittershader name="textflow">
+	<param name="time" type="float" default="0.0" />
+	<param name="gain_r" type="float" default="1.0" />
+	<param name="gain_a" type="float" default="1.0" />
+	<param name="gain_t" type="float" default="1.0" />
+	<param name="gain_s1" type="float" default="4.0" />
+	<param name="gain_s2" type="float" default="0.2" />
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.0">
+		<bind param="time" program="fp" />
+		<bind param="gain_r" program="fp" />
+		<bind param="gain_a" program="fp" />
+		<bind param="gain_s1" program="fp" />
+		<bind param="gain_s2" program="fp" />
+		<bind param="gain_t" program="fp" />
+		<bind param="tex0" program="fp" />	
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+
+void main()
+{
+	// perform standard transform on vertex
+	gl_Position = ftransform();
+    
+	// transform texcoords
+	texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+	texcoord1 = vec2(gl_TextureMatrix[1] * gl_MultiTexCoord1);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+uniform sampler2DRect tex0;
+uniform sampler2DRect tex1;
+uniform float time;
+uniform float gain_r;
+uniform float gain_s1;
+uniform float gain_s2;
+uniform float gain_a;
+uniform float gain_t;
+vec2 resolution = textureSize(tex0,0);
+
+void main(void)
+{
+    vec2 p = -1.0 + 2.0 * texcoord0 / resolution;
+    // a rotozoom
+    vec2 cst = gain_r*vec2( cos(.5*time*gain_t), sin(.5*time*gain_t) );
+    mat2 rot = gain_a*0.5*cst.x*mat2(cst.x,-cst.y,cst.y,cst.x);
+    vec3 col1 = texture2DRect(tex0,rot*p*resolution).xyz;
+
+    // scroll
+    vec3 col2 = texture2DRect(tex1,(0.5*p+sin(0.1*time*gain_t))*resolution).xyz;
+
+    // blend layers
+    vec3 col = (0.1+gain_s2*col2)*(0.1+gain_s1*col1);
+
+    gl_FragColor = vec4(col,1.0);
+}
+]]>
+		</program>
+	</language>
+</jittershader>

@@ -1,0 +1,48 @@
+<jittershader name="multizoom">
+	<param name="zoom" type="float" default="-5.4" />
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.0">
+		<bind param="zoom" program="fp" /> 
+		<bind param="tex0" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+
+void main()
+{
+	// perform standard transform on vertex
+	gl_Position = ftransform();
+    
+	// transform texcoords
+	texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+}
+
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+uniform sampler2DRect tex0;
+vec2 resolution = textureSize(tex0,0);
+uniform float zoom;
+float zoom2 = (zoom + 6.4);
+float dim_W = resolution.x/zoom2;
+float dim_H = resolution.y/zoom2;
+float x0 = resolution.x / 2.0;
+float y0 = resolution.y / 2.0;
+vec2 dim = vec2(dim_W,dim_H);
+vec4 out_vec;
+vec2 coord;
+
+void main()
+{   
+        coord.x = mod(x0 + zoom2 * (texcoord0.x - x0),resolution.x);
+        coord.y = mod(y0 + zoom2 * (texcoord0.y - y0),resolution.y);
+
+        out_vec = texture2DRect(tex0,coord);
+	gl_FragColor = out_vec;
+}
+]]>
+		</program>
+	</language>
+</jittershader>

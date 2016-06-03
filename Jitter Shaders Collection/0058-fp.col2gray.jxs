@@ -1,0 +1,44 @@
+<jittershader name="color2gray">
+	<description>Shader for color to gay scaling</description>
+	<param name="tex0" type="int" default="0" />
+	<param name="R_gain" type="float" default="1.0" />
+	<param name="G_gain" type="float" default="1.0" />
+	<param name="B_gain" type="float" default="1.0" />
+	<language name="glsl" version="1.0">
+		<bind param="text0" program="fp" />
+		<bind param="R_gain" program="fp" />
+		<bind param="G_gain" program="fp" />
+		<bind param="B_gain" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+
+void main (void)
+
+{
+    gl_Position = ftransform();
+    texcoord0    = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+}
+]]>		
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+uniform sampler2DRect tex0;
+uniform float R_gain;
+uniform float G_gain;
+uniform float B_gain;
+
+void main (void)
+{
+	vec3 texColor = texture2DRect(tex0, texcoord0).rgb;
+        float R_gray_level = 0.30 * R_gain * texColor.r + 0.59 * texColor.g + 0.11 * texColor.b;
+        float G_gray_level = 0.30 * texColor.r + G_gain * 0.59 * texColor.g + 0.11 * texColor.b;
+        float B_gray_level = 0.30 * texColor.r + 0.59 * texColor.g + B_gain * 0.11 * texColor.b;
+        float A_gray_level = 0.30 * texColor.r + 0.59 * texColor.g + 0.11 * texColor.b;
+	gl_FragColor = vec4 (R_gray_level,G_gray_level,B_gray_level,A_gray_level);
+}
+]]>		
+		</program>		
+	</language>
+</jittershader>

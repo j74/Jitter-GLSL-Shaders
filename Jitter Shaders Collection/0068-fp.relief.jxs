@@ -1,0 +1,71 @@
+<jittershader name="textflow">
+	<param name="time" type="float" default="0.0" />
+	<param name="gain_r" type="float" default="1.0" />
+	<param name="gain_a" type="float" default="1.0" />
+	<param name="gain_t" type="float" default="1.0" />
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.0">
+		<bind param="time" program="fp" />
+		<bind param="gain_r" program="fp" />
+		<bind param="gain_a" program="fp" />
+		<bind param="gain_t" program="fp" />
+		<bind param="tex0" program="fp" />	
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+varying vec2 texcoord1;
+
+void main()
+{
+	// perform standard transform on vertex
+	gl_Position = ftransform();
+    
+	// transform texcoords
+	texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+	texcoord1 = vec2(gl_TextureMatrix[1] * gl_MultiTexCoord1);
+}
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+uniform sampler2DRect tex0;
+uniform float time;
+uniform float gain_t;
+uniform float gain_r;
+uniform float gain_a;
+vec2 resolution = textureSize(tex0,0);
+
+void main(void)
+{
+    vec2 p = -1.0 + 2.0 * texcoord0 / resolution;
+    vec2 uv;
+
+    float r = gain_r*sqrt( dot(p,p) );
+    float a = gain_a*atan(p.y,p.x) + 0.5*sin(0.5*r-0.5*(gain_t*time));
+
+    float s = 0.5 + 0.5*cos(7.0*a);
+    s = smoothstep(0.0,1.0,s);
+    s = smoothstep(0.0,1.0,s);
+    s = smoothstep(0.0,1.0,s);
+    s = smoothstep(0.0,1.0,s);
+
+    uv.x = (gain_t*time) + 1.0/( r + .2*s);
+    uv.y = 3.0*a/3.1416;
+
+    float w = (0.5 + 0.5*s)*r*r;
+
+    vec2 coord = vec2(uv.x*resolution.x,uv.y*resolution.y);
+    vec3 col =  texture2DRect(tex0,coord).xyz;
+
+    float ao = 0.5 + 0.5*cos(7.0*a);
+    ao = smoothstep(0.0,0.4,ao)-smoothstep(0.4,0.7,ao);
+    ao = 1.0-0.5*ao*r;
+
+    gl_FragColor = vec4(col*w*ao,1.0);
+}
+
+]]>
+		</program>
+	</language>
+</jittershader>

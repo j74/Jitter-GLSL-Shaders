@@ -1,0 +1,44 @@
+<jittershader name="wavefront">
+	<param name="zoom" type="float" default="320." />
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.0">
+		<bind param="zoom" program="fp" /> 
+		<bind param="tex0" program="fp" />
+		<program name="vp" type="vertex">
+<![CDATA[
+varying vec2 texcoord0;
+
+void main()
+{
+	// perform standard transform on vertex
+	gl_Position = ftransform();
+    
+	// transform texcoords
+	texcoord0 = vec2(gl_TextureMatrix[0] * gl_MultiTexCoord0);
+}
+
+]]>
+		</program>
+		<program name="fp" type="fragment">
+<![CDATA[
+varying vec2 texcoord0;
+uniform sampler2DRect tex0;
+vec2 resolution = textureSize(tex0,0);
+uniform float zoom;
+float dim_W = resolution.x/zoom;
+float dim_H = resolution.y/zoom;
+vec2 dim = vec2(dim_W,dim_H);
+vec4 out_vec;
+vec2 coord;
+
+void main()
+{   
+	coord.x = zoom * mod(texcoord0.x,dim.x);
+	coord.y = zoom * mod(texcoord0.y,dim.y);
+        out_vec = texture2DRect(tex0,coord);
+	gl_FragColor = out_vec;
+}
+]]>
+		</program>
+	</language>
+</jittershader>

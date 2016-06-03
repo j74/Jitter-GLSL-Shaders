@@ -1,0 +1,69 @@
+<jittershader name="textflow">
+	<param name="gain1" type="float" default="0." />
+	<param name="gain2" type="float" default="0.5" />
+	<param name="gain3" type="float" default="0.5" />
+	<param name="gain4" type="float" default="0.5" />
+	<param name="gain5" type="float" default="0.5" />
+	<param name="gain6" type="float" default="0.5" />
+	<param name="gain7" type="float" default="0.5" />
+	<param name="tex0" type="int" default="0" />
+	<language name="glsl" version="1.0">
+		<bind param="gain1" program="fp" />
+		<bind param="gain2" program="fp" />
+		<bind param="gain3" program="fp" />
+		<bind param="gain4" program="fp" />
+		<bind param="gain5" program="fp" />
+		<bind param="gain6" program="fp" />
+		<bind param="gain7" program="fp" />
+		<bind param="tex0" program="fp" />	
+		<program name="vp" type="vertex" source="sh.passthrudim.vp.glsl" />
+		<program name="fp" type="fragment">
+<![CDATA[
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+uniform sampler2DRect tex0;
+uniform float gain1;
+float g1 = gain1 * 100.; 
+uniform float gain2;
+float g2 = gain2 * 10.;
+uniform float gain3;
+float g3 = gain3 * 1000.; 
+uniform float gain4;
+float g4 = gain4 * 100.; 
+uniform float gain5;
+float g5 = gain5 * 100.; 
+uniform float gain6;
+float g6 = gain6 * 100.; 
+uniform float gain7;
+float g7 = gain7 * 100.; 
+ 
+vec4 a;
+
+void main(void)
+{
+    vec2 p = -1.0 + 2.0 * gl_FragCoord.xy / (600.0 , g3);
+    vec2 m = -1.0 + 2.0 * (0.5, g2) / (600.0 , g4);
+
+    float a1 = atan(p.y-m.y,p.x-m.x);
+    float r1 = sqrt(dot(p-m,p-m));
+    float a2 = atan(p.y+m.y,p.x+m.x);
+    float r2 = sqrt(dot(p+m,p+m));
+
+    vec2 uv;
+    uv.x = g6+(0.2*g1 + (r1-r2)*0.25);
+    uv.y = g7+g5*sin(2.0*(a1-a2));
+
+    a = texture2DRect(tex0, uv);
+    vec3 col = vec3(a.x,a.y,a.z);
+
+    float w = r1*r2*0.8;
+    gl_FragColor = vec4(col/(.1+w),1.0);
+}
+
+]]>
+		</program>
+	</language>
+</jittershader>
